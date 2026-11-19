@@ -151,7 +151,10 @@ private final class DieselCairnMCPServer {
             return json(["status": "decoded", "profile": try jsonObject(profile), "source": decoded.source, "notice": "VIN data does not identify ECM/TCM serials or establish calibration compatibility."])
         case "simulator_get_state", "diagnostics_get_state": return json(simulatorState())
         case "simulator_connect":
-            if let scenario = a["scenario"]?.string, let value = SimulatorScenario(rawValue: scenario) { simulator.scenario = value }
+            if let raw = a["scenario"]?.string {
+                guard let value = SimulatorScenario(rawValue: raw) else { throw MCPError.invalid("Unknown simulator scenario: \(raw).") }
+                simulator.scenario = value
+            }
             simulator.startVirtualSession()
             for _ in 0..<8 { simulator.advance() }
             return json(simulatorState())
@@ -167,8 +170,12 @@ private final class DieselCairnMCPServer {
             return json(simulatorState())
         case "simulator_send_frame":
             let pgn = try uint32(a["pgn"], field: "pgn")
-            let source = UInt8(try uint32(a["sourceAddress"], field: "sourceAddress"))
-            let priority = UInt8(try uint32(a["priority"], field: "priority"))
+            let sourceValue = try uint32(a["sourceAddress"], field: "sourceAddress")
+            guard sourceValue <= UInt32(UInt8.max) else { throw MCPError.invalid("sourceAddress must be between 0 and 255.") }
+            let priorityValue = try uint32(a["priority"], field: "priority")
+            guard priorityValue <= 7 else { throw MCPError.invalid("J1939 priority must be between 0 and 7.") }
+            let source = UInt8(sourceValue)
+            let priority = UInt8(priorityValue)
             let payload = try bytePayload(a["payload"])
             let frame = try simulator.sendManualFrame(pgn: pgn, sourceAddress: source, priority: priority, payload: payload)
             return json(["accepted": true, "frame": frameObject(frame), "state": simulatorState()])
@@ -182,6 +189,7 @@ private final class DieselCairnMCPServer {
             let frames = try array.map { item -> J1939Frame in
                 guard let row = item.object else { throw MCPError.invalid("Each frame must be an object.") }
                 let identifier = try uint32(row["identifier"], field: "identifier")
+                guard identifier <= 0x1FFF_FFFF else { throw MCPError.invalid("J1939 identifier must fit in 29 bits.") }
                 return J1939Frame(identifier: identifier, payload: try bytePayload(row["payload"]))
             }
             simulator.loadReplay(frames)
@@ -220,8 +228,8 @@ private final class DieselCairnMCPServer {
     private func configureSimulator(_ a: [String: JSONValue]) throws {
         if let raw = a["scenario"]?.string { guard let value = SimulatorScenario(rawValue: raw) else { throw MCPError.invalid("Unknown simulator scenario.") }; simulator.scenario = value }
         if let raw = a["adapter"]?.string { guard let value = VirtualAdapterDevice(rawValue: raw) else { throw MCPError.invalid("Unknown virtual adapter profile.") }; simulator.selectAdapter(value) }
-        if let n = a["bitrate"]?.number { guard let value = SimulatedCANBitrate(rawValue: Int(n)) else { throw MCPError.invalid("Unsupported bitrate; use 125000, 250000, 500000, or 1000000.") }; simulator.bitrate = value }
-        if let n = a["busBitrate"]?.number { guard let value = SimulatedCANBitrate(rawValue: Int(n)) else { throw MCPError.invalid("Unsupported bus bitrate.") }; simulator.busBitrate = value }
+        if let n = a["bitrate"]?.number { guard let value = SimulatedCANBitrate(rawValue: try integer(n, field: "bitrate", range: 0...1_000_000)) else { throw MCPError.invalid("Unsupported bitrate; use 125000, 250000, 500000, or 1000000.") }; simulator.bitrate = value }
+        if let n = a["busBitrate"]?.number { guard let value = SimulatedCANBitrate(rawValue: try integer(n, field: "busBitrate", range: 0...1_000_000)) else { throw MCPError.invalid("Unsupported bus bitrate.") }; simulator.busBitrate = value }
         if let n = a["busLoad"]?.number { guard (0...100).contains(n) else { throw MCPError.invalid("busLoad must be between 0 and 100 percent.") }; simulator.simulatedBusLoad = n }
         if let n = a["supplyVoltage"]?.number { guard (0...24).contains(n) else { throw MCPError.invalid("supplyVoltage must be between 0 and 24 volts.") }; simulator.simulatedSupplyVoltage = n }
         setBool(a, "ecuOnline", to: &simulator.ecuNodeOnline)
@@ -236,9 +244,9 @@ private final class DieselCairnMCPServer {
         setBool(a, "termination", to: &simulator.terminationEnabled)
         setBool(a, "injectTransportErrors", to: &simulator.injectTransportErrors)
         setBool(a, "injectDemoFault", to: &simulator.injectDemoFault)
-        if let n = a["gear"]?.number { guard (1...6).contains(Int(n)) else { throw MCPError.invalid("Virtual gear must be 1 through 6.") }; simulator.simulatedGear = Int(n) }
-        if let n = a["j1708IdleBits"]?.number { guard (0...20).contains(Int(n)) else { throw MCPError.invalid("j1708IdleBits must be 0 through 20.") }; simulator.simulatedJ1708IdleBits = Int(n) }
-        if let n = a["j1708Priority"]?.number { guard (1...8).contains(Int(n)) else { throw MCPError.invalid("j1708Priority must be 1 through 8.") }; simulator.simulatedJ1708Priority = UInt8(n) }
+        if let n = a["gear"]?.number { simulator.simulatedGear = try integer(n, field: "gear", range: 1...6) }
+        if let n = a["j1708IdleBits"]?.number { simulator.simulatedJ1708IdleBits = try integer(n, field: "j1708IdleBits", range: 0...20) }
+        if let n = a["j1708Priority"]?.number { simulator.simulatedJ1708Priority = UInt8(try integer(n, field: "j1708Priority", range: 1...8)) }
     }
 
     private func setBool(_ args: [String: JSONValue], _ key: String, to value: inout Bool) { if let v = args[key]?.bool { value = v } }
@@ -305,13 +313,24 @@ private final class DieselCairnMCPServer {
 
     private func uint32(_ value: JSONValue?, field: String) throws -> UInt32 {
         guard let value else { throw MCPError.invalid("Missing \(field).") }
-        if let n = value.number, n >= 0, n <= Double(UInt32.max) { return UInt32(n) }
+        if let n = value.number, n.isFinite, n >= 0, n <= Double(UInt32.max), n.rounded(.towardZero) == n { return UInt32(n) }
         if let s = value.string {
-            let trimmed = s.hasPrefix("0x") ? String(s.dropFirst(2)) : s
-            if let n = UInt32(trimmed, radix: 16) { return n }
+            let trimmed = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.lowercased().hasPrefix("0x"), let n = UInt32(String(trimmed.dropFirst(2)), radix: 16) { return n }
             if let n = UInt32(trimmed) { return n }
+            if let n = UInt32(trimmed, radix: 16) { return n }
         }
         throw MCPError.invalid("\(field) must be an unsigned integer or hexadecimal string.")
+    }
+
+    private func integer(_ value: Double, field: String, range: ClosedRange<Int>) throws -> Int {
+        guard value.isFinite,
+              value.rounded(.towardZero) == value,
+              value >= Double(range.lowerBound),
+              value <= Double(range.upperBound) else {
+            throw MCPError.invalid("\(field) must be an integer from \(range.lowerBound) through \(range.upperBound).")
+        }
+        return Int(value)
     }
 
     private func bytePayload(_ value: JSONValue?) throws -> [UInt8] {

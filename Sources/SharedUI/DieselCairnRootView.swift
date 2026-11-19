@@ -347,60 +347,102 @@ private struct VehicleProfileView: View {
     @State private var confirmVINSend = false
 
     var body: some View {
-        Form {
-            Section {
-                HStack {
-                    BrandMark(size: 40)
-                    VStack(alignment: .leading) { Text("RE300 · PB305 school bus").font(.headline); Text("Saved locally on this device").font(.caption).foregroundStyle(.secondary) }
-                }.padding(.vertical, 6)
-            }
-            Section("Vehicle identity") {
-                TextField("VIN", text: $profile.vin).textCase(.uppercase).autocorrectionDisabled()
-                HStack {
-                    Button { confirmVINSend = true } label: {
-                        if decoding { ProgressView().controlSize(.small) } else { Label("Decode VIN", systemImage: "barcode.viewfinder") }
-                    }.disabled(decoding || profile.vin.count < 11).confirmationDialog("Send VIN to NHTSA vPIC?", isPresented: $confirmVINSend, titleVisibility: .visible) {
-                        Button("Send VIN and decode") { Task { await decodeVIN() } }
-                        Button("Cancel", role: .cancel) { }
-                    } message: {
-                        Text("DieselCairn will send this VIN and model year to the public NHTSA VIN decoder over HTTPS. The result only fills basic vehicle details; module IDs and calibrations still need to be verified.")
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                SurfaceCard {
+                    HStack(spacing: 12) {
+                        BrandMark(size: 40)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("RE300 · PB305 school bus").font(.headline)
+                            Text("Profile saved locally on this device").font(.caption).foregroundStyle(DieselCairnBrand.muted)
+                        }
+                        Spacer()
                     }
-                    if let decodeMessage { Text(decodeMessage).font(.caption).foregroundStyle(decodeSucceeded ? DieselCairnBrand.success : DieselCairnBrand.accent) }
                 }
-                TextField("Model year", text: $profile.year)
-                TextField("Make", text: $profile.make)
-                TextField("Model", text: $profile.model)
-                TextField("Owner / factory-confirmed model number", text: $profile.vinDecodedModel)
-                TextField("NHTSA-reported model code", text: $profile.vinReportedModel)
-                TextField("NHTSA series", text: $profile.vinDecodedSeries)
-                TextField("NHTSA transmission style", text: $profile.vinTransmissionStyle)
-                TextField("Engine", text: $profile.engine)
-                Text("RE300 is the rear-engine series badge; PB305 is the school-bus model number. VIN positions 4–5 and the factory label can confirm it.")
-                    .font(.caption).foregroundStyle(.secondary)
+                SurfaceCard {
+                    SectionEyebrow(text: "VEHICLE IDENTITY")
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), alignment: .leading)], alignment: .leading, spacing: 12) {
+                        profileField("VIN · 17 characters", text: $profile.vin)
+                            .textCase(.uppercase).autocorrectionDisabled()
+                        profileField("Model year", text: $profile.year)
+                        profileField("Make", text: $profile.make)
+                        profileField("Series badge", text: $profile.model)
+                        profileField("Owner / factory model number", text: $profile.vinDecodedModel)
+                        profileField("NHTSA-reported model code", text: $profile.vinReportedModel)
+                        profileField("NHTSA series", text: $profile.vinDecodedSeries)
+                        profileField("NHTSA transmission style", text: $profile.vinTransmissionStyle)
+                        profileField("Engine", text: $profile.engine)
+                    }
+                    HStack(alignment: .top, spacing: 12) {
+                        Button { confirmVINSend = true } label: {
+                            if decoding { ProgressView().controlSize(.small) } else { Label("Decode VIN", systemImage: "barcode.viewfinder") }
+                        }
+                        .disabled(decoding || profile.vin.count != 17)
+                        .confirmationDialog("Send VIN to NHTSA vPIC?", isPresented: $confirmVINSend, titleVisibility: .visible) {
+                            Button("Send VIN and decode") { Task { await decodeVIN() } }
+                            Button("Cancel", role: .cancel) { }
+                        } message: {
+                            Text("DieselCairn will send this VIN and model year to the public NHTSA VIN decoder over HTTPS. The result only fills basic vehicle details; module IDs and calibrations still need to be verified.")
+                        }
+                        if let decodeMessage {
+                            Text(decodeMessage).font(.caption).foregroundStyle(decodeSucceeded ? DieselCairnBrand.success : DieselCairnBrand.warning).fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text("Enter a complete 17-character VIN to enable decoding.").font(.caption).foregroundStyle(DieselCairnBrand.muted)
+                        }
+                    }.padding(.top, 12)
+                    Text("RE300 is the rear-engine series badge; PB305 is the school-bus model number. Confirm the factory label and VIN result together.")
+                        .font(.caption).foregroundStyle(DieselCairnBrand.muted).padding(.top, 8)
+                }
+                SurfaceCard {
+                    SectionEyebrow(text: "ENGINE / ECM IDENTIFIERS")
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), alignment: .leading)], alignment: .leading, spacing: 12) {
+                        profileField("Engine serial number", text: $profile.engineSerial)
+                        profileField("ECM serial / part number", text: $profile.engineECMSerial)
+                        profileField("ECM calibration ID / code", text: $profile.engineCalibrationID)
+                    }.padding(.top, 10)
+                }
+                SurfaceCard {
+                    SectionEyebrow(text: "TRANSMISSION / TCM IDENTIFIERS")
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), alignment: .leading)], alignment: .leading, spacing: 12) {
+                        profileField("Allison series · owner reported", text: $profile.transmissionSeries)
+                        profileField("Transmission model · owner reported", text: $profile.transmissionModel)
+                        profileField("Transmission serial number", text: $profile.transmissionSerial)
+                        profileField("TCM serial / part number", text: $profile.tcmSerial)
+                        profileField("TCM calibration ID / CIN", text: $profile.transmissionCalibrationID)
+                    }.padding(.top, 10)
+                    Text("Owner reports an Allison 3000 Series 3000PTS. Confirm the transmission nameplate and TCM identity before selecting target-specific procedures or calibrations.")
+                        .font(.caption).foregroundStyle(DieselCairnBrand.muted).padding(.top, 10)
+                }
+                SurfaceCard {
+                    SectionEyebrow(text: "SERVICE NOTES")
+                    TextEditor(text: $profile.notes)
+                        .frame(minHeight: 100)
+                        .scrollContentBackground(.hidden)
+                        .padding(6)
+                        .background(.black.opacity(0.16), in: RoundedRectangle(cornerRadius: 8))
+                        .padding(.top, 8)
+                }
+                SurfaceCard {
+                    Label("VIN decoding fills basic vehicle fields when NHTSA has submitted data. Verify fields against vehicle labels and module reports before building a flash project.", systemImage: "checkmark.shield")
+                        .font(.caption).foregroundStyle(DieselCairnBrand.muted)
+                    Text("Decode source: \(profile.vinDecodeSource)").font(.caption2).foregroundStyle(DieselCairnBrand.muted).padding(.top, 6).textSelection(.enabled)
+                }
             }
-            Section("Engine / ECM identifiers") {
-                TextField("Engine serial number", text: $profile.engineSerial)
-                TextField("ECM serial / part number", text: $profile.engineECMSerial)
-                TextField("ECM calibration ID / code", text: $profile.engineCalibrationID)
-            }
-            Section("Transmission / TCM identifiers") {
-                TextField("Allison series (owner-reported; verify tag)", text: $profile.transmissionSeries)
-                TextField("Transmission model (owner-reported; verify tag)", text: $profile.transmissionModel)
-                Text("Owner reports an Allison 3000 Series 3000PTS. Confirm the transmission nameplate and TCM identity before selecting target-specific procedures or calibrations.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                TextField("Transmission serial number", text: $profile.transmissionSerial)
-                TextField("TCM serial / part number", text: $profile.tcmSerial)
-                TextField("TCM calibration ID / CIN", text: $profile.transmissionCalibrationID)
-            }
-            Section("Service notes") { TextEditor(text: $profile.notes).frame(minHeight: 100) }
-            Section {
-                Label("VIN decoding fills basic vehicle fields when NHTSA has submitted data. Verify every field against the vehicle labels and module reports before building a flash project.", systemImage: "checkmark.shield")
-                    .font(.caption).foregroundStyle(.secondary)
-                Text("Decode source: \(profile.vinDecodeSource)").font(.caption2).foregroundStyle(.secondary)
-            }
+            .padding(20)
+            .frame(maxWidth: 920)
+            .frame(maxWidth: .infinity)
         }
-        .scrollContentBackground(.hidden).background(DieselCairnBrand.ink).navigationTitle("Vehicle profile")
+        .background(DieselCairnBrand.ink)
+        .navigationTitle("Vehicle profile")
+    }
+
+    private func profileField(_ label: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label).font(.caption.weight(.medium)).foregroundStyle(DieselCairnBrand.muted)
+            TextField(label, text: text)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(label)
+        }
     }
 
     @MainActor private func decodeVIN() async {
@@ -434,6 +476,7 @@ private struct VehicleProfileView: View {
 }
 
 private struct BenchSimulatorView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ObservedObject var sim: DiagnosticSimulator
     @State private var showingTraceImporter = false
     @State private var showingTraceExporter = false
@@ -478,7 +521,10 @@ private struct BenchSimulatorView: View {
                     }.pickerStyle(.segmented).padding(.top, 12)
                     Toggle("Virtual ECM transmits DM1 fault (SPN 110 · FMI 0)", isOn: $sim.injectDemoFault).tint(DieselCairnBrand.accent).padding(.top, 8)
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 140), alignment: .leading)], spacing: 12) {
+                let metricColumns = horizontalSizeClass == .compact
+                    ? [GridItem(.flexible(), alignment: .leading)]
+                    : Array(repeating: GridItem(.flexible(), alignment: .leading), count: 3)
+                LazyVGrid(columns: metricColumns, spacing: 12) {
                     BenchMetric(title: "Frames processed", value: sim.framesReceived.formatted())
                     BenchMetric(title: "Modeled rates", value: sim.isRunning ? "ECM 20 Hz · TCM 10 Hz" : "Stopped")
                     BenchMetric(title: "Active virtual faults", value: sim.virtualAdapterConnected ? sim.faults.count.formatted() : "—")
@@ -648,9 +694,20 @@ private struct BenchMetric: View {
     let value: String
     var body: some View {
         SurfaceCard {
-            Text(title.uppercased()).font(.system(size: 9, weight: .bold, design: .rounded)).tracking(1.1).foregroundStyle(.white.opacity(0.5))
-            Text(value).font(.system(size: 23, weight: .bold, design: .rounded)).padding(.top, 6)
+            Text(title.uppercased())
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(0.8)
+                .foregroundStyle(.white.opacity(0.5))
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 6)
         }
+        .frame(minHeight: 92, alignment: .topLeading)
     }
 }
 

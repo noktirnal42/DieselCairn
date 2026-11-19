@@ -5,7 +5,8 @@
 - [x] Replace the generic demo gauge/card dashboard with a restrained, information-dense heavy-duty scan-tool layout.
 - [x] Replace the playful orange/mint palette with neutral instrument surfaces and semantic status colors.
 - [x] Add a custom app icon and matching vector brand mark for DieselCairn.
-- [ ] Complete the Mac screen review and improve the long scrolling profile/Flash Studio forms for iPhone; current iPhone section routing and settled screen fit were checked on-device.
+- [x] Review Mac navigation and fix Vehicle Profile label overflow and bench metric wrapping; recheck both screens on the Mac.
+- [ ] Review current profile/Flash Studio layouts on iPhone after current-build signing and installation are available.
 - [ ] Check VoiceOver, keyboard navigation, contrast, and Dynamic Type on the physical devices.
 
 ## Vehicle diagnostics and programming
@@ -27,7 +28,7 @@
 
 - [ ] Complete J1939 simulator coverage: address claim, TP.CM/TP.DT, DM1/DM2, request timeout and error injection.
 - [ ] Update graphical wiki, GitHub Pages and printable PDF manuals after engineering decisions; verify citations, links and rendered pages.
-- [ ] Create private GitHub remote; exclude build products, secrets, VIN/captures and licensed OEM files; version source/docs and QA evidence.
+- [x] Publish the source/docs remote; keep build products, secrets, owner VIN/captures and licensed OEM files out of the public repository.
 - [ ] Expand PC/GUI multi-link simulation and firmware emulation where peripheral models are accurate; record model limits.
 - [ ] Run current-limited adapter HIL checks and keep vehicle-level work gated on bench evidence.
-- [ ] Finish MacBook and physical iPhone functional/accessibility QA beyond the completed launch, dashboard, and navigation checks; record evidence in `docs/DEVICE_QA.md`.
+- [ ] Finish the remaining MacBook functional/accessibility checks and physical iPhone QA after Xcode account/provisioning is restored; record evidence in `docs/DEVICE_QA.md`.
