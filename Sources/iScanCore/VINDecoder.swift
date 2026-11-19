@@ -9,6 +9,11 @@ public struct VINDecodeResult: Sendable {
     public let transmissionStyle: String
     public let source: String
     public let errorCode: String
+    public let errorText: String
+
+    public var hasInvalidCheckDigit: Bool {
+        errorCode.split(separator: ",").contains { $0.trimmingCharacters(in: .whitespaces) == "1" }
+    }
 }
 
 public enum VINDecodeError: Error, LocalizedError {
@@ -33,6 +38,16 @@ public enum VINDecodeError: Error, LocalizedError {
 
 /// Uses the public NHTSA vPIC decoder. Returned values are suggestions; ECM/TCM identifiers must be read from the modules.
 public enum VINDecoder {
+    public struct ProfileLookup: Sendable {
+        public let submittedVIN: String
+        public let usesLabelPrefix: Bool
+
+        fileprivate init(submittedVIN: String, usesLabelPrefix: Bool) {
+            self.submittedVIN = submittedVIN
+            self.usesLabelPrefix = usesLabelPrefix
+        }
+    }
+
     private static let allowedCharacters = CharacterSet(charactersIn: "0123456789ABCDEFGHJKLMNPRSTUVWXYZabcdefghjklmnprstuvwxyz")
 
     private struct Envelope: Decodable { let Results: [Result] }
@@ -54,16 +69,27 @@ public enum VINDecoder {
     public static func validatedVIN(_ rawVIN: String) throws -> String {
         let vin = unformattedVIN(rawVIN)
         guard vin.count == 17 else { throw VINDecodeError.invalidLength }
-        guard vin.unicodeScalars.allSatisfy(allowedCharacters.contains) else { throw VINDecodeError.invalidCharacters }
-        return vin.uppercased()
+        return try uppercaseVINCharacters(vin)
+    }
+
+    public static func profileLookup(for rawIdentifier: String) throws -> ProfileLookup {
+        let identifier = unformattedVIN(rawIdentifier)
+        guard identifier.count == 17 || identifier.count == 18 else { throw VINDecodeError.invalidLength }
+        let canonical = try uppercaseVINCharacters(identifier)
+        return ProfileLookup(submittedVIN: String(canonical.prefix(17)), usesLabelPrefix: canonical.count == 18)
     }
 
     public static func decode(_ rawVIN: String, modelYear: Int? = nil, session: URLSession = .shared) async throws -> VINDecodeResult {
         let vin = try validatedVIN(rawVIN)
+        let lookup = ProfileLookup(submittedVIN: vin, usesLabelPrefix: false)
+        return try await decode(lookup, modelYear: modelYear, session: session)
+    }
+
+    public static func decode(_ lookup: ProfileLookup, modelYear: Int? = nil, session: URLSession = .shared) async throws -> VINDecodeResult {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "vpic.nhtsa.dot.gov"
-        components.path = "/api/vehicles/DecodeVinValuesExtended/\(vin)"
+        components.path = "/api/vehicles/DecodeVinValuesExtended/\(lookup.submittedVIN)"
         var query = [URLQueryItem(name: "format", value: "json")]
         if let modelYear { query.append(URLQueryItem(name: "modelyear", value: String(modelYear))) }
         components.queryItems = query
@@ -75,17 +101,17 @@ public enum VINDecoder {
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw VINDecodeError.serviceUnavailable }
             let result = try JSONDecoder().decode(Envelope.self, from: data).Results.first
             guard let result else { throw VINDecodeError.noData }
-            let errorCode = result.ErrorCode?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let errorText = nonempty(result.ErrorText)
-            if errorCode.split(separator: ",").contains(where: { $0.trimmingCharacters(in: .whitespaces) == "1" }) {
-                throw VINDecodeError.invalidCheckDigit(errorText)
-            }
-            return VINDecodeResult(
+            let decoded = VINDecodeResult(
                 modelYear: nonempty(result.ModelYear), make: nonempty(result.Make), model: nonempty(result.Model), series: nonempty(result.Series),
                 engine: nonempty(result.EngineModel), transmissionStyle: nonempty(result.TransmissionStyle),
                 source: "NHTSA vPIC · \(Date.now.formatted(date: .abbreviated, time: .omitted))",
-                errorCode: errorCode
+                errorCode: result.ErrorCode?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                errorText: nonempty(result.ErrorText)
             )
+            if decoded.hasInvalidCheckDigit && !lookup.usesLabelPrefix {
+                throw VINDecodeError.invalidCheckDigit(decoded.errorText)
+            }
+            return decoded
         } catch let error as VINDecodeError {
             throw error
         } catch let error as URLError where error.code == .timedOut {
@@ -93,6 +119,11 @@ public enum VINDecoder {
         } catch {
             throw VINDecodeError.serviceUnavailable
         }
+    }
+
+    private static func uppercaseVINCharacters(_ value: String) throws -> String {
+        guard value.unicodeScalars.allSatisfy(allowedCharacters.contains) else { throw VINDecodeError.invalidCharacters }
+        return value.uppercased()
     }
 
     private static func nonempty(_ value: String?) -> String { guard let value, !value.isEmpty, value != "Not Applicable", value != "0" else { return "" }; return value }

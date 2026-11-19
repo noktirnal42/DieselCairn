@@ -16,7 +16,7 @@ The macOS and iOS app targets share a SwiftUI service workspace. It opens discon
 
 ## Vehicle profile and privacy
 
-The profile is stored locally on the current device by default. VIN decoding sends the VIN and optional model year to the NHTSA vPIC API over HTTPS. The app must disclose this request before sending it. Do not put account passwords, OEM portal credentials, or private security keys in the profile or project notes. Future cloud synchronization is not enabled.
+The profile is stored locally on the current device by default. After you confirm **Decode VIN**, the app sends the 17-character VIN and optional model year to NHTSA vPIC over HTTPS. If the vehicle label shows an 18-character identifier, enter it in full. DieselCairn saves it as entered and asks for consent to send its first 17 characters. The app displays the returned details in an advisory panel and flags an invalid check digit or a mismatch with the saved model code so you can review the result before editing the profile. Do not put account passwords, OEM portal credentials, or private security keys in the profile or project notes. Future cloud synchronization is not enabled.
 
 ## Flash Studio
 

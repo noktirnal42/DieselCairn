@@ -92,6 +92,30 @@ final class VINDecoderTests: XCTestCase {
         }
     }
 
+    func testLabelLookupSendsOnlyThePrefixAndReturnsTheCheckDigitWarning() async throws {
+        // Test label based on the public check-digit mismatch fixture above.
+        let printedIdentifier = "4DRBWAAR09A0472340"
+        var profile = VehicleProfile()
+        profile.vin = printedIdentifier
+        let savedProfile = try JSONDecoder().decode(VehicleProfile.self, from: JSONEncoder().encode(profile))
+        XCTAssertEqual(savedProfile.vin, printedIdentifier)
+
+        let lookup = try VINDecoder.profileLookup(for: savedProfile.vin)
+        XCTAssertTrue(lookup.usesLabelPrefix)
+        XCTAssertEqual(lookup.submittedVIN, "4DRBWAAR09A047234")
+        XCTAssertThrowsError(try VINDecoder.validatedVIN(printedIdentifier))
+        MockVINProtocol.responseBody = #"{"Results":[{"ModelYear":"2009","Make":"IC BUS","Model":"PB305","Series":"RE","ErrorCode":"1, 14","ErrorText":"1 - Check Digit (9th position) does not calculate properly"}]}"#.data(using: .utf8)!
+
+        let details = try await VINDecoder.decode(lookup, modelYear: 2009, session: mockedSession())
+
+        XCTAssertEqual(MockVINProtocol.lastRequestURL?.lastPathComponent, lookup.submittedVIN)
+        XCTAssertEqual(details.make, "IC BUS")
+        XCTAssertEqual(details.model, "PB305")
+        XCTAssertEqual(details.modelYear, "2009")
+        XCTAssertTrue(details.hasInvalidCheckDigit)
+        XCTAssertTrue(details.errorText.contains("Check Digit"))
+    }
+
     private func mockedSession(using urlProtocol: URLProtocol.Type = MockVINProtocol.self) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [urlProtocol]
@@ -111,10 +135,12 @@ private final class TimeoutVINProtocol: URLProtocol {
 
 private final class MockVINProtocol: URLProtocol {
     static var responseBody = Data()
+    static var lastRequestURL: URL?
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
+        Self.lastRequestURL = request.url
         let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Self.responseBody)
