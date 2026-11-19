@@ -147,9 +147,11 @@ private struct OverviewView: View {
                         Text(profile.displayTitle)
                             .font(.system(size: 24, weight: .semibold, design: .default))
                             .lineLimit(2).minimumScaleFactor(0.82)
-                        Text("PB305 SCHOOL BUS  ·  MAXXFORCE DT")
+                        Text("PB305 SCHOOL BUS  ·  MAXXFORCE DT  ·  ALLISON 3000PTS")
                             .font(.system(size: 10, weight: .medium, design: .monospaced))
                             .foregroundStyle(DieselCairnBrand.muted)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.78)
                         Text(sim.virtualAdapterConnected ? "Virtual \(sim.selectedAdapter.rawValue) · isolated" : "No adapter or simulator connected")
                             .font(.caption2).foregroundStyle(DieselCairnBrand.muted)
                     }

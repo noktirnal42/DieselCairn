@@ -10,8 +10,8 @@ QA records actual build, device, and simulator evidence separately. Build succes
 | macOS app | Pass | Xcode build succeeds. App launched on the MacBook; Overview and Vehicle Profile were inspected. The Profile shows Allison 3000 Series / 3000PTS as owner-reported and asks for nameplate confirmation. |
 | Mac software bench | Pass | The app's isolated virtual session generated labeled synthetic traffic, increasing frame and adapter counters, and displayed modeled J1939 rates. This is an app-internal simulator session, not an external bus or physical simulator node. |
 | iOS device build | Pass | Signed build succeeds and installs on the paired iPhone 16 Pro Max. The developer team is provided locally at build time and is not stored in this public repository. |
-| iPhone launch / latest visual | Blocked | The latest build was installed, but its launch request was rejected while the phone was locked. A prior physical screen capture showed the disconnected Overview with blank readings; it predates the Allison 3000PTS profile update. Inspect the updated screen after the phone is unlocked. |
-| Documentation site | Pass, local preview | Strict Zensical build completes without warnings. Visual inspection found and fixed raw icon/card markup; the landing page now renders a branded hero, responsive cards, evidence labels, and a readable service flow. GitHub Pages still needs deployment verification. |
+| iPhone launch / latest visual | Pass | Latest signed build installed and launched on the physical iPhone 16 Pro Max. A direct device screenshot shows the disconnected Overview, blank live readings, and the owner-reported Allison 3000PTS line. Other mobile workflows still need current-build interaction QA. |
+| Documentation site | Pass | Strict Zensical build and GitHub Pages deployment completed successfully (run 44430646091). The public site returns HTTP 200 at https://noktirnal42.github.io/DieselCairn/. Local visual inspection found and fixed raw icon/card markup; the landing page renders a branded hero, responsive cards, evidence labels, and a readable service flow. |
 | External simulator tools | Reviewed | CANExplorer and pycangui are generic J1939 candidates; neither emulates this PB305 ECM or Allison TCM. No reusable timed J1708/J1587 source simulator was found. CANExplorer's release checksum matched, but macOS rejected its ad-hoc signature, so the app was not opened. |
 
 ## Remaining MacBook checks
@@ -22,7 +22,7 @@ QA records actual build, device, and simulator evidence separately. Build succes
 
 ## Remaining physical iPhone checks
 
-- [ ] Unlock the iPhone and launch the latest signed build; inspect Overview and confirm Allison 3000PTS provenance text.
+- [x] Launch the latest signed build on the physical iPhone 16 Pro Max; direct device screenshot confirms the disconnected Overview, blank live readings, and owner-reported Allison 3000PTS provenance text.
 - [ ] Exercise navigation, Diagnostics, profile/VIN input, simulator controls, file picker/export, and persistence on device.
 - [ ] Check safe areas, orientation, keyboard behavior, Dynamic Type, VoiceOver, background/foreground recovery, and touch targets.
 
