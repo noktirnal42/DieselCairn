@@ -456,26 +456,15 @@ private struct VehicleProfileView: View {
     @State private var decodeMessage: String?
     @State private var decodeSucceeded = false
     @State private var confirmVINSend = false
-    @State private var labelLookupResult: VINDecodeResult?
 
     private let fieldColumns = [GridItem(.adaptive(minimum: 220), alignment: .leading)]
     private var vinLength: Int { VINDecoder.unformattedVIN(profile.vin).count }
-    private var vinLookup: VINDecoder.ProfileLookup? { try? VINDecoder.profileLookup(for: profile.vin) }
+    private var vinCanDecode: Bool { (try? VINDecoder.validatedVIN(profile.vin)) != nil }
     private var vinHint: String {
-        if vinLength == 0 { return "Enter the VIN or the full 18-character identifier printed on the vehicle label." }
-        if vinLength != 17 && vinLength != 18 {
-            return "Enter 17 characters for a standard VIN or 18 for a label identifier. This entry has \(vinLength)."
-        }
-        guard let vinLookup else { return VINDecodeError.invalidCharacters.localizedDescription }
-        return vinLookup.usesLabelPrefix
-            ? "18-character label ID. NHTSA looks up the first 17 characters."
-            : "Look up basic vehicle details using NHTSA vPIC."
-    }
-    private var vinDisclosure: String {
-        if vinLookup?.usesLabelPrefix == true {
-            return "DieselCairn will send the first 17 characters and model year to NHTSA vPIC over HTTPS. The full 18-character label ID stays in the local profile. Use the returned details for review."
-        }
-        return "DieselCairn will send this VIN and model year to NHTSA vPIC over HTTPS to look up basic vehicle details."
+        if vinLength == 0 { return "Enter the 17-character VIN from the vehicle label." }
+        if vinLength != 17 { return "VIN must contain 17 characters. This entry has \(vinLength)." }
+        if !vinCanDecode { return VINDecodeError.invalidCharacters.localizedDescription }
+        return "Look up basic vehicle details using NHTSA vPIC."
     }
 
     var body: some View {
@@ -494,7 +483,7 @@ private struct VehicleProfileView: View {
                 SurfaceCard {
                     SectionEyebrow(text: "VEHICLE IDENTITY")
                     LazyVGrid(columns: fieldColumns, alignment: .leading, spacing: 12) {
-                        profileField("VIN or label identifier", text: $profile.vin, identifier: "vehicle-vin")
+                        profileField("VIN · 17 characters", text: $profile.vin, identifier: "vehicle-vin")
                             .autocorrectionDisabled()
 #if os(iOS)
                             .textInputAutocapitalization(.characters)
@@ -505,12 +494,12 @@ private struct VehicleProfileView: View {
                         Button { confirmVINSend = true } label: {
                             Label("Decode VIN", systemImage: "barcode.viewfinder")
                         }
-                        .disabled(decoding || vinLookup == nil)
-                        .confirmationDialog("Look up vehicle details with NHTSA vPIC?", isPresented: $confirmVINSend, titleVisibility: .visible) {
+                        .disabled(decoding || !vinCanDecode)
+                        .confirmationDialog("Send VIN to NHTSA vPIC?", isPresented: $confirmVINSend, titleVisibility: .visible) {
                             Button("Send VIN and decode") { Task { await decodeVIN() } }
                             Button("Cancel", role: .cancel) { }
                         } message: {
-                            Text(vinDisclosure)
+                            Text("DieselCairn will send this VIN and model year to the public NHTSA VIN decoder over HTTPS. The result only fills basic vehicle details; module IDs and calibrations still need to be verified.")
                         }
                         if decoding {
                             ProgressView("Looking up VIN with NHTSA…").controlSize(.small)
@@ -518,13 +507,10 @@ private struct VehicleProfileView: View {
                             Text(decodeMessage).font(.caption).foregroundStyle(decodeSucceeded ? DieselCairnBrand.success : DieselCairnBrand.warning).fixedSize(horizontal: false, vertical: true)
                         } else {
                             Text(vinHint).font(.caption)
-                                .foregroundStyle(vinLookup == nil && vinLength > 0 ? DieselCairnBrand.warning : DieselCairnBrand.muted)
+                                .foregroundStyle(!vinCanDecode && vinLength > 0 ? DieselCairnBrand.warning : DieselCairnBrand.muted)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }.padding(.vertical, 4)
-                    if let labelLookupResult {
-                        labelLookupDetails(labelLookupResult)
-                    }
                     Divider()
                     LazyVGrid(columns: fieldColumns, alignment: .leading, spacing: 12) {
                         profileField("Make", text: $profile.make)
@@ -579,41 +565,10 @@ private struct VehicleProfileView: View {
             .frame(maxWidth: .infinity)
         }
         .navigationTitle("Vehicle profile")
-        .onChange(of: profile.vin) { _ in
-            decodeMessage = nil
-            labelLookupResult = nil
-        }
+        .onChange(of: profile.vin) { _ in decodeMessage = nil }
         .onChange(of: profile.year) { _ in
             if !decodeSucceeded { decodeMessage = nil }
-            labelLookupResult = nil
         }
-    }
-
-    private func labelLookupDetails(_ result: VINDecodeResult) -> some View {
-        let returnedDetails = [result.modelYear, result.make, result.model, result.series]
-            .filter { !$0.isEmpty }.joined(separator: " · ")
-        let profileModel = profile.vinDecodedModel.trimmingCharacters(in: .whitespacesAndNewlines)
-        let reportedModel = result.model.trimmingCharacters(in: .whitespacesAndNewlines)
-        return VStack(alignment: .leading, spacing: 6) {
-            Label("NHTSA lookup of first 17 characters", systemImage: "info.circle").font(.subheadline.weight(.semibold))
-            if !returnedDetails.isEmpty { Text(returnedDetails).font(.caption) }
-            if !result.engine.isEmpty { Text(result.engine).font(.caption) }
-            if result.hasInvalidCheckDigit {
-                Text("NHTSA flagged an invalid check digit at position 9. Treat these details as advisory.")
-                    .font(.caption).foregroundStyle(DieselCairnBrand.warning)
-            } else {
-                Text("Advisory details for the 17-character prefix of the saved label identifier.")
-                    .font(.caption).foregroundStyle(DieselCairnBrand.muted)
-            }
-            if !reportedModel.isEmpty, !profileModel.isEmpty, reportedModel.caseInsensitiveCompare(profileModel) != .orderedSame {
-                Text("Model-code mismatch. NHTSA reports \(reportedModel). The saved profile records \(profileModel).")
-                    .font(.caption).foregroundStyle(DieselCairnBrand.warning)
-            }
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DieselCairnBrand.ink.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func profileField(_ label: String, text: Binding<String>, identifier: String? = nil) -> some View {
@@ -627,24 +582,18 @@ private struct VehicleProfileView: View {
     }
 
     @MainActor private func decodeVIN() async {
-        guard let request = vinLookup else { return }
-        let requestIdentifier = profile.vin
+        guard let requestVIN = try? VINDecoder.validatedVIN(profile.vin) else { return }
         let requestYear = profile.year
         decoding = true
         decodeSucceeded = false
         decodeMessage = nil
-        labelLookupResult = nil
         defer { decoding = false }
         do {
             let decoded = try await VINDecoder.decode(
-                request,
+                requestVIN,
                 modelYear: Int(requestYear.trimmingCharacters(in: .whitespacesAndNewlines))
             )
-            guard profile.vin == requestIdentifier, profile.year == requestYear else { return }
-            if request.usesLabelPrefix {
-                labelLookupResult = decoded
-                return
-            }
+            guard (try? VINDecoder.validatedVIN(profile.vin)) == requestVIN, profile.year == requestYear else { return }
             let reportedModelCode = decoded.model.trimmingCharacters(in: .whitespacesAndNewlines)
             let confirmedModelCode = profile.vinDecodedModel.trimmingCharacters(in: .whitespacesAndNewlines)
             let modelCodeMismatch = !reportedModelCode.isEmpty && !confirmedModelCode.isEmpty &&
@@ -666,7 +615,7 @@ private struct VehicleProfileView: View {
                 decodeSucceeded = true
             }
         } catch {
-            guard profile.vin == requestIdentifier, profile.year == requestYear else { return }
+            guard (try? VINDecoder.validatedVIN(profile.vin)) == requestVIN, profile.year == requestYear else { return }
             decodeMessage = error.localizedDescription
         }
     }
