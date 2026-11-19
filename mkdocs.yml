@@ -58,3 +58,5 @@ nav:
   - Flash Studio: flash-studio.md
   - Evidence and Sources: references.md
   - Project Status: status.md
+  - Product Research:
+      - Service Tools and Modules: research/service-tools-and-modules.md

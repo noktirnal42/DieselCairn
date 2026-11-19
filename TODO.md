@@ -8,6 +8,7 @@
 - [x] Review Mac navigation and fix Vehicle Profile label overflow and bench metric wrapping; recheck both screens on the Mac.
 - [ ] Review current profile/Flash Studio layouts on iPhone after current-build signing and installation are available.
 - [ ] Check VoiceOver, keyboard navigation, contrast, and Dynamic Type on the physical devices.
+- [x] Add a Diagnostics route for simulator-only SPN/FMI fault injection and clearing, with plain-language generic FMI definitions and explicit live-clear boundary.
 
 ## Vehicle diagnostics and programming
 
@@ -22,11 +23,12 @@
 - [ ] Design/validate dual-link adapters and separate physical J1708 + J1939 simulator nodes; obtain connector/build-specific evidence and review circuitry before ordering a vehicle-facing design.
 - [ ] Acquire no calibration binary until ECM/TCM labels are read and official Navistar/Allison tools authorize a target-specific file.
 - [ ] Confirm the installed Allison series, TCM generation/calibration, speed/tire ratios, and OEM approval before evaluating sixth range.
+- [x] Research official Navistar/Allison diagnostic product features and public module/patent records; document their limits and relevance to DieselCairn.
 - [ ] Verify the three adapter paths (STM32 + CAN controller, Arduino + CAN controller, FT232H + CAN controller) independently and document which functions each supports.
 
 ## Simulation and release evidence
 
-- [ ] Complete J1939 simulator coverage: address claim, TP.CM/TP.DT, DM1/DM2, request timeout and error injection.
+- [ ] Complete J1939 simulator coverage: receive-side BAM is implemented; add expiry/pacing, transmit BAM, RTS/CTS, address claim, DM2, request timeout and broader error injection.
 - [ ] Update graphical wiki, GitHub Pages and printable PDF manuals after engineering decisions; verify citations, links and rendered pages.
 - [x] Publish the source/docs remote; keep build products, secrets, owner VIN/captures and licensed OEM files out of the public repository.
 - [ ] Expand PC/GUI multi-link simulation and firmware emulation where peripheral models are accurate; record model limits.

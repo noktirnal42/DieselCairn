@@ -91,6 +91,50 @@ final class VirtualBenchIntegrationTests: XCTestCase {
         XCTAssertTrue(sim.recentFrames.contains { $0.pgn == 0xFECA })
     }
 
+    func testSyntheticFaultFixtureCanBeClearedWithoutVehicleSession() throws {
+        let sim = DiagnosticSimulator()
+        sim.startVirtualSession()
+        let fault = try sim.sendSyntheticFault(spn: 190, fmi: 2, occurrenceCount: 7)
+
+        XCTAssertEqual(fault.code, "SPN 190 · FMI 2")
+        XCTAssertEqual(fault.description, "Engine Speed: Data is erratic, intermittent, or incorrect.")
+        XCTAssertEqual(fault.occurrenceCount, 7)
+        XCTAssertTrue(sim.injectDemoFault)
+
+        sim.clearSimulatorFaults()
+        XCTAssertTrue(sim.faults.isEmpty)
+        XCTAssertFalse(sim.injectDemoFault)
+    }
+
+    func testDM2FrameIsShownAsPreviouslyActive() throws {
+        let sim = DiagnosticSimulator()
+        sim.startVirtualSession()
+        let dtc = J1939DTC(spn: 110, fmi: 1, occurrenceCount: 4)
+        _ = try sim.sendManualFrame(pgn: 0x00FECC, sourceAddress: 0, priority: 6, payload: J1939FaultCatalog.encodeDM1(dtc))
+
+        XCTAssertTrue(sim.faults.isEmpty)
+        XCTAssertEqual(sim.previouslyActiveFaults.first?.code, "SPN 110 · FMI 1")
+        XCTAssertEqual(sim.previouslyActiveFaults.first?.isActive, false)
+    }
+
+    func testReplayReassemblesBroadcastJ1939TransportMessage() {
+        let sim = DiagnosticSimulator()
+        let source: UInt8 = 0x80
+        let payload = Array(UInt8(1)...UInt8(9))
+        let start = Date(timeIntervalSince1970: 10)
+        let frames = [
+            J1939Frame(identifier: (UInt32(3) << 26) | (UInt32(0x00ECFF) << 8) | UInt32(source), payload: [0x20, 9, 0, 2, 0xFF, 0xCA, 0xFE, 0], timestamp: start),
+            J1939Frame(identifier: (UInt32(3) << 26) | (UInt32(0x00EBFF) << 8) | UInt32(source), payload: [1] + Array(payload[0..<7]), timestamp: start.addingTimeInterval(0.01)),
+            J1939Frame(identifier: (UInt32(3) << 26) | (UInt32(0x00EBFF) << 8) | UInt32(source), payload: [2, payload[7], payload[8], 0xFF, 0xFF, 0xFF, 0xFF, 0xFF], timestamp: start.addingTimeInterval(0.02)),
+        ]
+        sim.loadReplay(frames)
+
+        XCTAssertEqual(sim.recentTransportMessages.count, 1)
+        XCTAssertEqual(sim.recentTransportMessages.first?.pgn, 0x00FECA)
+        XCTAssertEqual(sim.recentTransportMessages.first?.payload, payload)
+        XCTAssertEqual(sim.recentTransportMessages.first?.source, .replay)
+    }
+
     func testTerminationFaultDropsFramesAndCountsErrors() {
         let sim = DiagnosticSimulator()
         sim.terminationEnabled = false

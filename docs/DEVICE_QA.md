@@ -6,7 +6,7 @@ QA records actual build, device, and simulator evidence separately. Build succes
 
 | Area | Result | Evidence / limit |
 |---|---|---|
-| Swift package | Pass | 23 tests pass. The additional MCP regression harness also passes range/overflow rejection, decimal PGN parsing, virtual J1939/J1587 injection, flash manifest integrity, and write-boundary checks. |
+| Swift package | Pass | 32 tests pass, including BAM reassembly, malformed count/global destination/sequence rejection, replay integration, SPN/FMI DM1 encoding/decoding, active/history fault handling and simulator clear, J1587 model/checksum, VIN parsing, and virtual-bench integration. The MCP regression harness passes range/overflow rejection, decimal PGN parsing, virtual J1939/J1587/BAM, simulator-only fault injection/clear, flash manifest integrity, and write-boundary checks. |
 | macOS app | Pass | Current Xcode build succeeds and launches on the MacBook. Sidebar routes were exercised for Diagnostics, Vehicle Profile, Flash Studio, CAN/J1708 bench, Virtual Hardware, and Adapters. A profile layout overflow was corrected and visually rechecked. |
 | Mac software bench | Pass | The isolated app session starts/stops, advances counters, and displays modeled ECU/TCM rates. Metric cards now use a stable desktop grid. This is app-internal synthetic traffic, not an external bus or physical simulator node. |
 | MCP server | Pass | `python3 scripts/qa_mcp.py` builds and drives the stdio server using framed JSON-RPC; boundary inputs return errors without terminating the server. Flash write capability correctly reports unavailable. |

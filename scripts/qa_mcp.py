@@ -62,7 +62,7 @@ try:
     initialized = rpc(1, "initialize", {"protocolVersion": "2025-03-26"})
     assert initialized["result"]["serverInfo"]["name"] == "dieselcairn"
     tools = rpc(2, "tools/list")["result"]["tools"]
-    assert len(tools) >= 18
+    assert len(tools) >= 20
     profile = call(3, "vehicle_get_profile")
     assert profile["transmissionModel"] == "3000PTS"
 
@@ -94,17 +94,32 @@ try:
     decimal_pgn = call(15, "simulator_send_frame", {"pgn": "61444", "sourceAddress": 0, "priority": 3, "payload": [255] * 8})
     assert decimal_pgn["accepted"] and decimal_pgn["frame"]["pgn"] == "0F004"
 
+    injected = call(16, "simulator_send_fault_code", {"spn": 110, "fmi": 0, "occurrenceCount": 3})
+    assert injected["faults"][0]["code"] == "SPN 110 · FMI 0"
+    assert "Engine Coolant Temperature" in injected["faults"][0]["description"]
+    cleared = call(17, "simulator_clear_faults")
+    assert cleared["faults"] == []
+
+    source = 0x80
+    bam_frames = [
+        {"identifier": (3 << 26) | (0xECFF << 8) | source, "payload": [0x20, 9, 0, 2, 0xFF, 0xCA, 0xFE, 0]},
+        {"identifier": (3 << 26) | (0xEBFF << 8) | source, "payload": [1, 1, 2, 3, 4, 5, 6, 7]},
+        {"identifier": (3 << 26) | (0xEBFF << 8) | source, "payload": [2, 8, 9, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]},
+    ]
+    replay = call(19, "simulator_load_replay", {"frames": bam_frames})
+    assert replay["transportMessages"] == [{"sourceAddress": source, "pgn": "0FECA", "payload": "01 02 03 04 05 06 07 08 09", "source": "REPLAY", "timestamp": replay["transportMessages"][0]["timestamp"]}]
+
     payload = b"qa-only-calibration-fixture"
     project = call(
-        16,
+        18,
         "flash_build_project",
         {"payloadBase64": __import__("base64").b64encode(payload).decode(), "module": "Engine ECM", "filename": "fixture.bin"},
     )
-    valid = call(17, "flash_validate_project", {"projectJSON": json.dumps(project)})
+    valid = call(19, "flash_validate_project", {"projectJSON": json.dumps(project)})
     assert valid["validProject"] and valid["payloadBytes"] == len(payload)
-    capability = call(18, "flash_write_capability")
+    capability = call(20, "flash_write_capability")
     assert capability["available"] is False and "no live write command" in capability["reason"].lower()
-    print("PASS: MCP initialization, tools, profile, virtual J1939/J1587, range/overflow rejection, decimal PGN parsing, flash manifest integrity, and write boundary")
+    print("PASS: MCP initialization, virtual J1939/J1587/BAM, SPN/FMI injection and simulator clear, validation boundaries, flash manifest integrity, and write boundary")
 finally:
     server.terminate()
     server.wait(timeout=5)

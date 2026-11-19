@@ -106,12 +106,18 @@ public struct DiagnosticFault: Identifiable, Equatable, Sendable {
     public let module: String
     public let description: String
     public let isActive: Bool
+    public let spn: UInt32?
+    public let fmi: UInt8?
+    public let occurrenceCount: UInt8?
 
-    public init(id: UUID = UUID(), code: String, module: String, description: String, isActive: Bool = true) {
+    public init(id: UUID = UUID(), code: String, module: String, description: String, isActive: Bool = true, spn: UInt32? = nil, fmi: UInt8? = nil, occurrenceCount: UInt8? = nil) {
         self.id = id
         self.code = code
         self.module = module
         self.description = description
         self.isActive = isActive
+        self.spn = spn
+        self.fmi = fmi
+        self.occurrenceCount = occurrenceCount
     }
 }

@@ -16,3 +16,9 @@ The physical simulator has separate CAN and J1708 test pairs. Control each test-
 
 The in-app software fixture is not a hardware simulator. Hardware HIL requires real PHYs, firmware, host transport and a recorded capture.
 
+## J1939 multi-packet receive
+
+The software bench reassembles J1939-21 Broadcast Announce Message (BAM) transfers from TP.CM and TP.DT frames. A BAM announces a destination PGN, total byte count, and packet count. Each TP.DT carries a sequence number and up to seven data bytes. DieselCairn checks the global destination, announced packet count, supported payload limit (1,785 bytes), and in-order sequence before trimming final-packet padding. Completed messages appear in **Reassembled J1939 messages** with PGN, source address, payload, and source provenance.
+
+The current implementation handles receive-side BAM only. It does not pace outgoing BAM frames, expire stalled sessions, or implement peer-to-peer RTS/CTS flow control. Imported traces may be replayed faster than wire timing; replay validates decoding and application handling, not bus timing. See [Vector's J1939 transport overview](https://certification.vector.com/mod/page/view.php?id=430) and [SAE J1939/21](https://saemobilus.sae.org/standards/j193921_200104-data-link-layer).
+

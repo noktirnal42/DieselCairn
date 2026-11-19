@@ -168,6 +168,20 @@ private final class DieselCairnMCPServer {
             simulator.injectDemoFault = a["enabled"]?.bool ?? true
             simulator.advance()
             return json(simulatorState())
+        case "simulator_send_fault_code":
+            let spnValue = try uint32(a["spn"], field: "spn")
+            let fmiValue = try uint32(a["fmi"], field: "fmi")
+            let occurrenceValue = a["occurrenceCount"]?.number ?? 1
+            guard spnValue <= 0x7_FFFF, fmiValue <= 31, occurrenceValue.isFinite,
+                  occurrenceValue.rounded(.towardZero) == occurrenceValue, (0...127).contains(occurrenceValue) else {
+                throw MCPError.invalid("SPN must be 0...524287, FMI 0...31, and occurrenceCount 0...127.")
+            }
+            _ = try simulator.sendSyntheticFault(spn: spnValue, fmi: UInt8(fmiValue), occurrenceCount: UInt8(occurrenceValue))
+            return json(simulatorState())
+        case "simulator_clear_faults":
+            guard simulator.isRunning else { throw MCPError.invalid("Connect the isolated virtual bench before clearing simulator faults.") }
+            simulator.clearSimulatorFaults()
+            return json(simulatorState())
         case "simulator_send_frame":
             let pgn = try uint32(a["pgn"], field: "pgn")
             let sourceValue = try uint32(a["sourceAddress"], field: "sourceAddress")
@@ -295,11 +309,13 @@ private final class DieselCairnMCPServer {
             "j1708Baud": J1708Timing.baudRate, "j1708IdleHighBits": simulator.simulatedJ1708IdleBits,
             "j1708PriorityClass": simulator.simulatedJ1708Priority,
             "j1587Messages": simulator.recentJ1587Messages.map { ["mid": String(format: "%02X", $0.mid), "bytes": $0.bytes.map { String(format: "%02X", $0) }.joined(separator: " "), "timestamp": ISO8601DateFormatter().string(from: $0.timestamp)] },
+            "transportMessages": simulator.recentTransportMessages.map { ["sourceAddress": $0.sourceAddress, "pgn": String(format: "%05X", $0.pgn), "payload": $0.payload.map { String(format: "%02X", $0) }.joined(separator: " "), "source": $0.source.rawValue, "timestamp": ISO8601DateFormatter().string(from: $0.timestamp)] as [String: Any] },
             "readings": simulator.readings.values.sorted { $0.parameter.rawValue < $1.parameter.rawValue }.map { [
                 "parameter": $0.parameter.rawValue, "value": $0.value, "unit": $0.parameter.unit,
                 "source": $0.source.rawValue, "timestamp": ISO8601DateFormatter().string(from: $0.timestamp)
             ] as [String: Any] },
-            "faults": simulator.faults.map { ["code": $0.code, "module": $0.module, "description": $0.description, "active": $0.isActive] as [String: Any] },
+            "faults": simulator.faults.map { ["code": $0.code, "module": $0.module, "description": $0.description, "active": $0.isActive, "spn": $0.spn as Any? ?? NSNull(), "fmi": $0.fmi as Any? ?? NSNull(), "occurrenceCount": $0.occurrenceCount as Any? ?? NSNull()] as [String: Any] },
+            "previouslyActiveFaults": simulator.previouslyActiveFaults.map { ["code": $0.code, "module": $0.module, "description": $0.description, "active": $0.isActive, "spn": $0.spn as Any? ?? NSNull(), "fmi": $0.fmi as Any? ?? NSNull(), "occurrenceCount": $0.occurrenceCount as Any? ?? NSNull()] as [String: Any] },
             "frames": simulator.recentFrames.map(frameObject)
         ]
     }
@@ -411,6 +427,8 @@ private final class DieselCairnMCPServer {
         ]),
         tool("virtual_hardware_configure", "Alias for simulator_set_controls, corresponding to the Virtual hardware screen."),
         tool("simulator_inject_fault", "Enable or clear the virtual ECU's synthetic DM1 fault on the isolated bus.", ["enabled": ["type": "boolean"]]),
+        tool("simulator_send_fault_code", "Transmit a synthetic J1939 DM1 SPN/FMI fixture through the isolated software bus; never sends to a vehicle.", ["spn": ["type": "integer", "minimum": 0, "maximum": 524287], "fmi": ["type": "integer", "minimum": 0, "maximum": 31], "occurrenceCount": ["type": "integer", "minimum": 0, "maximum": 127]], ["spn", "fmi"]),
+        tool("simulator_clear_faults", "Clear only the isolated virtual fault list. No physical ECM/TCM clear command exists.", [:], []),
         tool("simulator_send_frame", "Inject a classic-CAN J1939 frame through the virtual adapter protocol and app decoder.", ["pgn": ["oneOf": [["type": "integer"], ["type": "string"]]], "sourceAddress": ["type": "integer", "minimum": 0, "maximum": 255], "priority": ["type": "integer", "minimum": 0, "maximum": 7], "payload": ["oneOf": [["type": "array", "items": ["type": "integer", "minimum": 0, "maximum": 255], "maxItems": 8], ["type": "string"]]]], ["pgn", "sourceAddress", "priority", "payload"]),
         tool("simulator_send_j1587", "Send a checksum-valid synthetic J1587 message over the isolated virtual J1708 model; this is not physical bus output.", ["mid": ["type": "integer", "minimum": 0, "maximum": 255], "data": ["oneOf": [["type": "array", "items": ["type": "integer", "minimum": 0, "maximum": 255], "maxItems": 19], ["type": "string"]]]], ["mid", "data"]),
         tool("simulator_load_replay", "Replay frames through the virtual adapter path; frames must contain identifier and payload.", ["frames": ["type": "array", "items": ["type": "object"]]], ["frames"]),

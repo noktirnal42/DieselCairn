@@ -4,14 +4,17 @@
 
 - Native SwiftUI macOS/iOS app targets and app branding assets.
 - VIN decode/profile foundation and local flash-project manifest.
-- Partial J1939 frame model/decoder and software-only synthetic CAN simulator.
+- Partial J1939 frame model/decoder, receive-side BAM reassembly, and software-only synthetic CAN simulator.
 - Swift adapter framing codec and Arduino Leonardo CAN-only sketch prototype.
 - Initial MCP server and app navigation.
 - J1587 message model with length/checksum validation and J1708 timing helper (software functions only).
+- Simulator-only SPN/FMI fault fixture injection/clear, generic FMI definitions, and decoded active/history DTC display.
+- Product feature research for NED, ServiceMaxx, DLB, NavKal and Allison DOC; public patent/supplier findings documented with applicability limits.
 
 ## Not yet complete or proven
 
-- Full J1939 transport protocol, diagnostics and request behavior for exact PB305 modules.
+- J1939 RTS/CTS, transmit BAM/pacing/timeouts, full diagnostics and request behavior for exact PB305 modules.
+- Live diagnostic clear, actuator/regen controls, and target-specific ECM/TCM programming are not implemented; current fault injection and clear controls only affect the isolated simulator.
 - Complete GUI J1708/J1587 simulator controls and common two-link event model.
 - J1708 adapter firmware and physical simulator-node firmware.
 - Dual-link reviewed schematic, board, verified parts list and HIL hardware.

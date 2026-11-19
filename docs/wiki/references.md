@@ -10,6 +10,11 @@
 | J1587/J1708 overview | [U.S. DOT training supplement](https://www.its.dot.gov/StandardsTraining/modtransit5/sup/mt5sup.pdf) | Message relationship, framing and legacy bus overview |
 | Allison diagnostics | [Allison electronic diagnostics/tools](https://www.allisontransmission.com/aftermarket-and-channel/parts-and-service/service-tools--information/electronic-diagnostics--service-tools) | Product-family tool reference; not proof of the bus's TCM/generation |
 | Generic PGN dictionary | [ISOBUS PGN/SPN reference](https://www.isobus.net/isobus/pGNAndSPN/17187?type=PGN) | Cross-reference only; not an RE300 bus capture |
+| Navistar software catalog | [International/Navistar Public Information Portal](https://msi.navistar.com/public/documents/0001360585.xml) | Current product and guide index; software access/licensing remains Navistar-controlled |
+| Navistar NED | [NED User Guide](https://msi.navistar.com/public/ned/4328482.pdf) | Documents DTC/freeze-frame, monitoring, snapshots, tests and programming feature areas |
+| Allison diagnostic tools | [Allison DOC features](https://www.allisontransmission.com/aftermarket-and-channel/parts-and-service/service-tools--information/electronic-diagnostics--service-tools) | Current official feature tiers and generation coverage; verify actual bus TCM generation |
+| J1939 FMI definitions | [NHTSA-hosted technical bulletin table](https://static.nhtsa.gov/odi/tsbs/2018/MC-10145133-9999.pdf) | Generic FMI wording; it does not supply all OEM/SPN-specific troubleshooting |
+| International/Allison patents | [International engine control](https://patents.google.com/patent/US6248041B1/en), [Allison multi-speed control](https://patents.google.com/patent/US11047474B2/en), [Allison TCM remote programming](https://patents.google.com/patent/US12237971B2/en) | General design history only; these do not identify this bus's modules/calibration or provide a service procedure |
 
 ## Reusable open-source tooling review
 

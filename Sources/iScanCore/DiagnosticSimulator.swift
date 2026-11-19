@@ -55,15 +55,21 @@ public final class DiagnosticSimulator: ObservableObject {
     @Published public var injectTransportErrors = false
     @Published public private(set) var lastUpdate = Date.now
     @Published public private(set) var faults: [DiagnosticFault] = []
+    @Published public private(set) var previouslyActiveFaults: [DiagnosticFault] = []
     @Published public private(set) var recentFrames: [J1939Frame] = []
     @Published public private(set) var recentJ1587Messages: [J1587Message] = []
+    @Published public private(set) var recentTransportMessages: [J1939TransportMessage] = []
     @Published public var simulatedJ1708IdleBits = 10
     @Published public var simulatedJ1708Priority: UInt8 = 4
     @Published public var j1708TransceiverConnected = true
     @Published public var j1587SimulatorNodeOnline = true
     @Published public var injectJ1708Collision = false
     @Published public var scenario: SimulatorScenario = .curbsideIdle
-    @Published public var injectDemoFault = false
+    @Published public var injectDemoFault = false {
+        didSet { if !injectDemoFault { faults.removeAll() } }
+    }
+    @Published public var simulatedFaultSPN: UInt32 = 110
+    @Published public var simulatedFaultFMI: UInt8 = 0
     @Published public private(set) var isReplayMode = false
     @Published public private(set) var adapterFramesReceived = 0
     @Published public private(set) var adapterFramesSent = 0
@@ -84,6 +90,7 @@ public final class DiagnosticSimulator: ObservableObject {
     private var virtualTimestampMicros: UInt32 = 0
     private var replayFrames: [J1939Frame] = []
     private var replayIndex = 0
+    private var bamReassembler = J1939BAMReassembler()
 
     public init() {}
 
@@ -95,10 +102,13 @@ public final class DiagnosticSimulator: ObservableObject {
         isRunning = true
         readings.removeAll()
         faults.removeAll()
+        previouslyActiveFaults.removeAll()
         selectedGear = nil
         selectedRange = nil
         recentFrames.removeAll()
         recentJ1587Messages.removeAll()
+        recentTransportMessages.removeAll()
+        bamReassembler.reset()
         framesReceived = 0
         adapterFramesSent = 0
         adapterFramesReceived = 0
@@ -106,6 +116,7 @@ public final class DiagnosticSimulator: ObservableObject {
         isReplayMode = false
         replayFrames.removeAll()
         replayIndex = 0
+        bamReassembler.reset()
         schedulerTick = 0
         elapsed = 0
         virtualTimestampMicros = 0
@@ -116,6 +127,7 @@ public final class DiagnosticSimulator: ObservableObject {
         virtualAdapterConnected = false
         readings.removeAll()
         faults.removeAll()
+        previouslyActiveFaults.removeAll()
         selectedGear = nil
         selectedRange = nil
         isReplayMode = false
@@ -123,6 +135,27 @@ public final class DiagnosticSimulator: ObservableObject {
         replayIndex = 0
     }
     public func selectAdapter(_ adapter: VirtualAdapterDevice) { selectedAdapter = adapter }
+
+    @discardableResult
+    public func sendSyntheticFault(spn: UInt32, fmi: UInt8, occurrenceCount: UInt8 = 1) throws -> DiagnosticFault {
+        guard isRunning, virtualAdapterConnected else { throw VirtualBusError.noSession }
+        guard spn <= 0x7_FFFF, fmi <= 31, occurrenceCount <= 127 else { throw VirtualBusError.invalidFrame }
+        simulatedFaultSPN = spn
+        simulatedFaultFMI = fmi
+        injectDemoFault = true
+        let dtc = J1939DTC(spn: spn, fmi: fmi, occurrenceCount: occurrenceCount)
+        let frame = J1939Frame(identifier: J1939Frame.makeIdentifier(pgn: 0x00FECA, sourceAddress: 0), payload: J1939FaultCatalog.encodeDM1(dtc))
+        guard receive(frame, source: .simulator) else { throw VirtualBusError.dropped }
+        guard let fault = faults.first(where: { $0.spn == spn && $0.fmi == fmi }) else { throw VirtualBusError.invalidFrame }
+        recentFrames = Array(([frame] + recentFrames).prefix(100))
+        return fault
+    }
+
+    public func clearSimulatorFaults() {
+        injectDemoFault = false
+        faults.removeAll()
+        previouslyActiveFaults.removeAll()
+    }
 
     @discardableResult
     public func sendManualJ1587(mid: UInt8, data: [UInt8]) throws -> J1587Message {
@@ -170,7 +203,10 @@ public final class DiagnosticSimulator: ObservableObject {
         virtualAdapterConnected = true
         readings.removeAll()
         recentFrames.removeAll()
+        recentTransportMessages.removeAll()
+        bamReassembler.reset()
         faults.removeAll()
+        previouslyActiveFaults.removeAll()
         framesReceived = 0
         advance()
     }
@@ -178,6 +214,7 @@ public final class DiagnosticSimulator: ObservableObject {
         elapsed = 0
         replayFrames.removeAll()
         replayIndex = 0
+        bamReassembler.reset()
         isReplayMode = false
         stopVirtualSession()
         framesReceived = 0
@@ -187,6 +224,7 @@ public final class DiagnosticSimulator: ObservableObject {
         readings.removeAll()
         recentFrames.removeAll()
         faults.removeAll()
+        previouslyActiveFaults.removeAll()
         advance()
     }
 
@@ -244,7 +282,7 @@ public final class DiagnosticSimulator: ObservableObject {
         if ecuNodeOnline && simulatedSupplyVoltage >= 10.5 && injectDemoFault && schedulerTick.isMultiple(of: 10) {
             // DM1 with one active SPN 110 / FMI 0 DTC. This is generated by the virtual
             // ECU and must traverse the same virtual adapter packet path as other frames.
-            tickFrames.append(J1939Frame(identifier: J1939Frame.makeIdentifier(pgn: 0x00FECA, sourceAddress: 0x00), payload: [0x00, 0x00, 110, 0, 0, 1, 0xFF, 0xFF], timestamp: t))
+            tickFrames.append(J1939Frame(identifier: J1939Frame.makeIdentifier(pgn: 0x00FECA, sourceAddress: 0x00), payload: J1939FaultCatalog.encodeDM1(J1939DTC(spn: simulatedFaultSPN, fmi: simulatedFaultFMI)), timestamp: t))
         }
         if tcmNodeOnline && simulatedSupplyVoltage >= 10.5 && schedulerTick.isMultiple(of: 2) {
             let gearCode = UInt8(0x7D + min(6, max(1, simulatedGear)))
@@ -258,7 +296,6 @@ public final class DiagnosticSimulator: ObservableObject {
             _ = receive(frame, source: .simulator)
         }
         recentFrames = (tickFrames + recentFrames).prefix(100).map { $0 }
-        if !injectDemoFault || !ecuNodeOnline || simulatedSupplyVoltage < 10.5 { faults = [] }
         if !ecuNodeOnline || simulatedSupplyVoltage < 10.5 { readings.removeAll() }
         if !tcmNodeOnline || simulatedSupplyVoltage < 10.5 { selectedGear = nil; selectedRange = nil }
         lastUpdate = t
@@ -316,16 +353,43 @@ public final class DiagnosticSimulator: ObservableObject {
             adapterFramesReceived += 1
             lastAdapterTimestampMicros = packetFrame.timestampMicros
             let receivedFrame = packetFrame.frame
+            switch bamReassembler.consume(receivedFrame) {
+            case let .completed(sourceAddress, pgn, payload):
+                let message = J1939TransportMessage(sourceAddress: sourceAddress, pgn: pgn, payload: payload, timestamp: receivedFrame.timestamp, source: source)
+                recentTransportMessages = Array(([message] + recentTransportMessages).prefix(100))
+            case .started, .progress, .ignored, .rejected:
+                break
+            }
             for parameter in RE300Parameter.allCases where parameter.pgn.rawValue == receivedFrame.pgn {
                 if let reading = try? J1939Decoder.reading(for: parameter, in: receivedFrame, source: source) {
                     readings[parameter] = reading
                     framesReceived += 1
                 }
             }
-            if receivedFrame.pgn == 0x00FECA {
-                faults = receivedFrame.payload.count >= 6 && receivedFrame.payload[2] != 0xFF
-                    ? [DiagnosticFault(code: "SPN \(receivedFrame.payload[2]) · FMI \((receivedFrame.payload[4] >> 5) & 0x1F)", module: "Virtual engine ECM", description: "Virtual ECU reports a simulated diagnostic trouble code", isActive: true)]
-                    : []
+            if receivedFrame.pgn == 0x00FECA || receivedFrame.pgn == 0x00FECC {
+                if let dtcs = J1939FaultCatalog.decodeDTCs(receivedFrame.payload) {
+                    let active = receivedFrame.pgn == 0x00FECA
+                    let decoded = dtcs.map { dtc in
+                        let module: String
+                        if source == .simulator, receivedFrame.sourceAddress == 0x04 {
+                            module = "Virtual transmission TCM"
+                        } else if source == .simulator, receivedFrame.sourceAddress == 0x00 {
+                            module = "Virtual engine ECM"
+                        } else {
+                            module = String(format: "J1939 source address 0x%02X", receivedFrame.sourceAddress)
+                        }
+                        return DiagnosticFault(code: dtc.code,
+                                               module: module,
+                                               description: dtc.plainLanguage,
+                                               isActive: active,
+                                               spn: dtc.spn,
+                                               fmi: dtc.fmi,
+                                               occurrenceCount: dtc.occurrenceCount)
+                    }
+                    if active { faults = decoded } else { previouslyActiveFaults = decoded }
+                } else {
+                    transportErrors += 1
+                }
             }
             if receivedFrame.pgn == 0x00F005, receivedFrame.sourceAddress == 0x04, receivedFrame.payload.count == 8 {
                 let rawGear = receivedFrame.payload[3]

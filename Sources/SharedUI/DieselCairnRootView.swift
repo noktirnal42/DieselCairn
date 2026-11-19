@@ -287,6 +287,15 @@ private struct OverviewView: View {
 
 private struct DiagnosticsView: View {
     @ObservedObject var connection: ConnectionManager
+    @State private var faultSPN = "110"
+    @State private var faultFMI: Int = 0
+    @State private var faultStatus: String?
+
+    private var parsedSPN: UInt32? {
+        guard let value = UInt32(faultSPN), value <= 0x7_FFFF else { return nil }
+        return value
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -296,30 +305,62 @@ private struct DiagnosticsView: View {
                         Image(systemName: "info.circle.fill").font(.title2).foregroundStyle(DieselCairnBrand.accent)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(connection.simulator.virtualAdapterConnected ? "Virtual adapter session" : "No active session").font(.headline)
-                            Text("Live ECM/TCM identification, DM1 fault retrieval, and freeze-frame records will appear when a validated adapter profile is connected.").font(.subheadline).foregroundStyle(.white.opacity(0.62))
+                            Text("Fault status, module identity, and freeze-frame records are source-labeled. Live vehicle clearing is unavailable until a supported target service is verified.").font(.subheadline).foregroundStyle(.white.opacity(0.62))
                         }
                     }
                 }
                 SurfaceCard {
                     HStack { Text("Active fault codes").font(.headline); Spacer(); StatusPill(text: connection.simulator.virtualAdapterConnected ? "\(connection.simulator.faults.count) VIRTUAL" : "NO LINK", color: connection.simulator.virtualAdapterConnected ? DieselCairnBrand.success : DieselCairnBrand.muted) }
                     Divider().overlay(.white.opacity(0.1)).padding(.vertical, 10)
-                    VStack(spacing: 9) {
-                        Image(systemName: "checkmark.seal").font(.system(size: 28)).foregroundStyle(DieselCairnBrand.success)
+                    VStack(alignment: .leading, spacing: 12) {
                         if !connection.simulator.virtualAdapterConnected {
-                            Text("Not connected").font(.headline)
-                            Text("Connect a virtual ECU or validated physical adapter to retrieve module faults.").font(.caption).foregroundStyle(.white.opacity(0.55))
+                            Label("Not connected", systemImage: "cable.connector.slash").font(.headline)
+                            Text("Connect the isolated virtual bench to receive simulated faults. Vehicle data will remain separate.").font(.caption).foregroundStyle(.white.opacity(0.55))
                         } else if connection.simulator.faults.isEmpty {
-                            Text("No active faults reported").font(.headline)
-                            Text("The virtual ECU did not report active DM1 faults in received frames.").font(.caption).foregroundStyle(.white.opacity(0.55))
-                        } else {
-                            ForEach(connection.simulator.faults) { fault in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(fault.code).font(.headline)
-                                    Text("\(fault.module) · \(fault.description)").font(.caption).foregroundStyle(.white.opacity(0.55))
-                                }.frame(maxWidth: .infinity, alignment: .leading)
-                            }
+                            Label("No active faults reported", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(DieselCairnBrand.success)
                         }
-                    }.frame(maxWidth: .infinity, minHeight: 150)
+                        ForEach(connection.simulator.faults) { fault in faultRow(fault, state: "ACTIVE") }
+                        if !connection.simulator.previouslyActiveFaults.isEmpty {
+                            Text("PREVIOUSLY ACTIVE").font(.caption.weight(.bold)).tracking(1).foregroundStyle(DieselCairnBrand.muted).padding(.top, 5)
+                            ForEach(connection.simulator.previouslyActiveFaults) { fault in faultRow(fault, state: "STORED") }
+                        }
+                    }.frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
+                }
+                SurfaceCard {
+                    SectionEyebrow(text: "FAULT-CODE TEST FIXTURE")
+                    Text("Send a synthetic J1939 DM1 trouble code through the isolated simulator. SPN is the component or signal; FMI describes the detected failure mode.")
+                        .font(.caption).foregroundStyle(.white.opacity(0.58)).padding(.top, 5)
+                    HStack(alignment: .bottom, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("SPN · 0–524287").font(.caption).foregroundStyle(DieselCairnBrand.muted)
+                            TextField("SPN", text: $faultSPN).textFieldStyle(.roundedBorder).frame(width: 150)
+                        }
+                        Stepper("FMI \(faultFMI)", value: $faultFMI, in: 0...31).frame(maxWidth: 150)
+                        Button("Send test fault") {
+                            do {
+                                guard let parsedSPN else { throw VirtualBusError.invalidFrame }
+                                let fault = try connection.simulator.sendSyntheticFault(spn: parsedSPN, fmi: UInt8(faultFMI))
+                                faultStatus = "SIMULATOR received \(fault.code)"
+                            } catch { faultStatus = error.localizedDescription }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!connection.simulator.virtualAdapterConnected || parsedSPN == nil)
+                        Button("Clear simulator faults", role: .destructive) {
+                            connection.simulator.clearSimulatorFaults()
+                            faultStatus = "Synthetic fault list cleared · SIMULATOR"
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!connection.simulator.virtualAdapterConnected)
+                    }.padding(.top, 12)
+                    if let parsedSPN {
+                        Text("Definition · \(J1939FaultCatalog.spnName(parsedSPN)) — \(J1939FaultCatalog.fmiDescription(UInt8(faultFMI)))")
+                            .font(.caption).foregroundStyle(.white.opacity(0.78)).fixedSize(horizontal: false, vertical: true).padding(.top, 8)
+                    } else {
+                        Text("Enter an SPN from 0 through 524287.").font(.caption).foregroundStyle(DieselCairnBrand.warning).padding(.top, 8)
+                    }
+                    if let faultStatus { Text(faultStatus).font(.caption.monospaced()).foregroundStyle(DieselCairnBrand.accent).padding(.top, 6) }
+                    Label("Live vehicle clear commands are not implemented. Save the fault report and follow the target-specific service procedure before clearing ECM or TCM history.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(DieselCairnBrand.warning).padding(.top, 10)
                 }
                 SurfaceCard {
                     SectionEyebrow(text: "Current data stream")
@@ -336,6 +377,19 @@ private struct DiagnosticsView: View {
                 }
             }.padding(26).frame(maxWidth: 900).frame(maxWidth: .infinity, alignment: .leading)
         }.navigationTitle("Diagnostics")
+    }
+
+    private func faultRow(_ fault: DiagnosticFault, state: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(fault.code).font(.headline.monospaced())
+                StatusPill(text: state, color: state == "ACTIVE" ? DieselCairnBrand.warning : DieselCairnBrand.muted)
+                Spacer()
+                if let occurrenceCount = fault.occurrenceCount { Text("OC \(occurrenceCount)").font(.caption.monospaced()).foregroundStyle(DieselCairnBrand.muted) }
+            }
+            Text(fault.description).font(.subheadline).foregroundStyle(.white.opacity(0.8))
+            Text("\(fault.module) · J1939 DM1/DM2").font(.caption2).foregroundStyle(.white.opacity(0.48))
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(10).background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -592,6 +646,32 @@ private struct BenchSimulatorView: View {
                             Divider().overlay(.white.opacity(0.07))
                         }
                     }
+                }
+                SurfaceCard {
+                    HStack {
+                        SectionEyebrow(text: "Reassembled J1939 messages")
+                        Spacer()
+                        Text("BAM · up to 1,785 bytes").font(.caption2).foregroundStyle(.white.opacity(0.5))
+                    }
+                    if sim.recentTransportMessages.isEmpty {
+                        Text("No broadcast multi-packet messages received.")
+                            .font(.caption).foregroundStyle(.white.opacity(0.5)).padding(.vertical, 8)
+                    } else {
+                        ForEach(Array(sim.recentTransportMessages.prefix(12).enumerated()), id: \.offset) { _, message in
+                            VStack(alignment: .leading, spacing: 5) {
+                                HStack {
+                                    Text("PGN \(message.pgn.formatted()) · SA \(String(format: "%02X", message.sourceAddress))")
+                                    Spacer()
+                                    Text(message.source.rawValue)
+                                }.font(.caption.weight(.semibold).monospaced()).foregroundStyle(DieselCairnBrand.success)
+                                Text(message.payload.map { String(format: "%02X", $0) }.joined(separator: " "))
+                                    .font(.caption2.monospaced()).foregroundStyle(.white.opacity(0.75)).textSelection(.enabled)
+                            }.padding(.vertical, 7)
+                            Divider().overlay(.white.opacity(0.07))
+                        }
+                    }
+                    Text("Receive-side BAM reassembly only. Connection-managed RTS/CTS is not implemented.")
+                        .font(.caption2).foregroundStyle(.white.opacity(0.45)).padding(.top, 5)
                 }
                 SurfaceCard {
                     Label("Hardware emulation limits", systemImage: "info.circle.fill").font(.headline).foregroundStyle(DieselCairnBrand.accent)

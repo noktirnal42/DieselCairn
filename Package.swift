@@ -13,7 +13,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "iScanModels", path: "Sources/iScanModels", sources: ["VehicleModel.swift", "VehicleProfile.swift", "J1708Model.swift"]),
-        .target(name: "iScanCore", dependencies: ["iScanModels"], path: "Sources/iScanCore", sources: ["AdapterFrameCodec.swift", "ConnectionManager.swift", "DiagnosticSimulator.swift", "J1939Decoder.swift", "VINDecoder.swift"]),
+        .target(name: "iScanCore", dependencies: ["iScanModels"], path: "Sources/iScanCore", sources: ["AdapterFrameCodec.swift", "ConnectionManager.swift", "DiagnosticSimulator.swift", "J1939Decoder.swift", "J1939DiagnosticCode.swift", "J1939Transport.swift", "VINDecoder.swift"]),
         .target(name: "DieselCairnUI", dependencies: ["iScanCore", "iScanModels"], path: "Sources/SharedUI", sources: ["DieselCairnRootView.swift", "Brand.swift", "FlashPackage.swift"]),
         .executableTarget(name: "DieselCairnMac", dependencies: ["DieselCairnUI", "iScanCore"], path: "Sources/MacOS", sources: ["AppMain.swift"]),
         .executableTarget(name: "DieselCairnMobile", dependencies: ["DieselCairnUI", "iScanCore"], path: "Sources/iOS", sources: ["AppEntry.swift"]),
