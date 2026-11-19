@@ -6,26 +6,52 @@ QA records actual build, device, and simulator evidence separately. Build succes
 
 | Area | Result | Evidence / limit |
 |---|---|---|
-| Swift package | Pass | 32 tests pass, including BAM reassembly, malformed count/global destination/sequence rejection, replay integration, SPN/FMI DM1 encoding/decoding, active/history fault handling and simulator clear, J1587 model/checksum, VIN parsing, and virtual-bench integration. The MCP regression harness passes range/overflow rejection, decimal PGN parsing, virtual J1939/J1587/BAM, simulator-only fault injection/clear, flash manifest integrity, and write-boundary checks. |
+| Swift package | Pass | 36 tests pass, covering synthetic J1939/J1587 traffic, BAM reassembly, trace timestamp compatibility, SPN/FMI handling, VIN validation and timeout, vehicle profile, and bench integration. |
 | macOS app | Pass | Current Xcode build succeeds and launches on the MacBook. Sidebar routes were exercised for Diagnostics, Vehicle Profile, Flash Studio, CAN/J1708 bench, Virtual Hardware, and Adapters. A profile layout overflow was corrected and visually rechecked. |
 | Mac software bench | Pass | The isolated app session starts/stops, advances counters, and displays modeled ECU/TCM rates. Metric cards now use a stable desktop grid. This is app-internal synthetic traffic, not an external bus or physical simulator node. |
 | MCP server | Pass | `python3 scripts/qa_mcp.py` builds and drives the stdio server using framed JSON-RPC; boundary inputs return errors without terminating the server. Flash write capability correctly reports unavailable. |
-| iOS device build | Blocked | A current-build install is blocked by local Xcode account/provisioning state: without a team, signing is required; supplying the locally configured team fails because Xcode reports no account and no matching profile for the app bundle. No team identifier or credentials are stored in this repository. |
-| iPhone current-build visual QA | Blocked | The iPhone 16 Pro Max is connected, but the device was locked at the latest screenshot attempt. The installed app is from the previous verified build; current UI changes have not been installed or visually checked on-device. |
-| VIN decoder | Pass | A public auction fixture VIN was decoded through NHTSA vPIC: returned PB305 model code, RE series, and DT466/MaxxForce DT engine description. No ECM/TCM serial or calibration was returned. This is fixture data, not the owner's bus VIN. |
+| iOS device signing and install | Pass | The paired iPhone 16 Pro Max accepted the development build after the mobile targets picked up the existing team's local signing configuration. The cached profile covers this device and its development certificate is available in the local keychain. A strict signature check passed before installation. |
+| Mobile UI | Pass | Three XCTest workflows passed on the iPhone 17 simulator and the physical iPhone 16 Pro Max on iOS 27.2. The tests exercised section navigation, start/stop, adapter-to-hardware navigation, simulated DM1 fault injection and clear, Vehicle Profile and Flash Studio. Review used app screenshots from each destination. |
+| Mac VIN entry and lookup | Pass | The rebuilt Mac app identified an 18-character entry and rejected an invalid VIN character locally. A formatted public fixture accepted after consent returned PB305 / RE from NHTSA and saved the result in an isolated profile. The older 12-second timeout affected slow vPIC responses, so the app now allows 30 seconds and shows lookup progress and a specific timeout message. |
+| App icon | Pass | The 1024-pixel source is opaque sRGB, and all Mac catalog sizes are tracked. The built Mac app contains the updated icon. |
 | Documentation site | Pass | Strict Zensical build and GitHub Pages deployment completed successfully (run 44430646091). The public site returns HTTP 200 at https://noktirnal42.github.io/DieselCairn/. Local visual inspection found and fixed raw icon/card markup; the landing page renders a branded hero, responsive cards, evidence labels, and a readable service flow. |
 | External simulator tools | Reviewed | CANExplorer and pycangui are generic J1939 candidates; neither emulates this PB305 ECM or Allison TCM. No reusable timed J1708/J1587 source simulator was found. CANExplorer's release checksum matched, but macOS rejected its ad-hoc signature, so the app was not opened. |
 
-## Remaining MacBook checks
+## Local iPhone signing
 
-- [ ] Exercise Diagnostics fault injection, VIN decode error/manual correction, local profile persistence, and Flash Studio import/export/re-import.
-- [ ] Check J1939/J1587 manual injection, trace export/replay, pause/reset, and virtual hardware fault states in the GUI (MCP injection boundaries are covered by `scripts/qa_mcp.py`).
+The generated mobile targets use Automatic signing and read an optional, gitignored `Signing/DieselCairnMobile.local.xcconfig`. This keeps the local team selection across `xcodegen generate`. Create the file with the following line, substituting the development team that has a profile and certificate covering this app and the paired iPhone.
+
+```xcconfig
+DEVELOPMENT_TEAM[sdk=iphoneos*] = YOUR_TEAM_ID
+```
+
+```sh
+xcodegen generate
+xcrun devicectl list devices
+xcodebuild -project DieselCairn.xcodeproj -scheme DieselCairnMobile \
+  -destination "platform=iOS,id=$DEVICE_UDID" -derivedDataPath "$BUILD_DIR" build
+codesign --verify --deep --strict "$BUILD_DIR/Build/Products/Debug-iphoneos/DieselCairn.app"
+xcrun devicectl device install app --device "$DEVICE_UDID" "$BUILD_DIR/Build/Products/Debug-iphoneos/DieselCairn.app"
+xcrun devicectl device process launch --device "$DEVICE_UDID" dev.noktirnal.dieselcairn.ios
+```
+
+Set `DEVICE_UDID` to the paired phone and `BUILD_DIR` to a local build directory. Unlock the iPhone before launching. Xcode can build with a valid cached profile and matching local development identity. If that profile expires or the device changes, use the selected team's account in Xcode to refresh provisioning. See [Apple's registered-device guide](https://developer.apple.com/documentation/xcode/distributing-your-app-to-registered-devices/). The missing team setting was reproduced and fixed independently of the reported account sign-out.
+
+## Follow-up MacBook checks
+
+- [x] Start the virtual session, inject SPN 110/FMI 0, inspect the active Diagnostics row, and clear the simulated faults.
+- [x] Exercise J1939 and J1587 manual injection and navigate from Adapters to Virtual hardware.
+- [x] Verify inline VIN correction, consent, live public-fixture decode, and local profile persistence.
+- [x] Confirm a disconnected virtual CAN transceiver drops a test frame, then stop and reset the bench.
+- [ ] Verify Flash Studio import/export and trace export/replay through the file dialogs. Package tests cover compatible trace timestamps and frame ordering.
 - [ ] Verify window sizing/persistence, full keyboard navigation, VoiceOver, contrast, and large text.
 
 ## Remaining physical iPhone checks
 
-- [ ] Install and inspect the current build after Xcode account/provisioning is restored and the phone is unlocked.
-- [ ] Exercise navigation, Diagnostics, profile/VIN input, simulator controls, file picker/export, and persistence on device.
+- [x] Sign and install a current development build on the paired iPhone.
+- [x] Launch on the unlocked iPhone and inspect Overview, Diagnostics, simulator controls, profile and Flash Studio.
+- [x] Exercise section navigation, synthetic DM1 injection and clear, bench lifecycle, and virtual hardware navigation on the physical iPhone.
+- [ ] Verify VIN editing and decode, file picker/export, and persistence on the physical iPhone.
 - [ ] Check safe areas, orientation, keyboard behavior, Dynamic Type, VoiceOver, background/foreground recovery, and touch targets.
 
 ## Hardware-in-loop and vehicle gates

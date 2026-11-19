@@ -210,9 +210,9 @@ private final class DieselCairnMCPServer {
             return json(simulatorState())
         case "simulator_export_trace":
             guard simulator.virtualAdapterConnected else { throw MCPError.invalid("Start a virtual session before exporting a simulator trace.") }
-            let fixture = CanTraceFixture(scenario: simulator.scenario.rawValue, frames: simulator.recentFrames)
-            let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]; encoder.dateEncodingStrategy = .iso8601
-            return String(decoding: try encoder.encode(fixture), as: UTF8.self)
+            let frames = simulator.recentFrames.sorted { $0.timestamp < $1.timestamp }
+            let fixture = CanTraceFixture(scenario: simulator.scenario.rawValue, frames: frames)
+            return String(decoding: try fixture.encoded(), as: UTF8.self)
         case "flash_build_project":
             guard let base64 = a["payloadBase64"]?.string, let payload = Data(base64Encoded: base64), !payload.isEmpty else { throw MCPError.invalid("Pass a non-empty payloadBase64 value.") }
             guard payload.count <= 64 * 1024 * 1024 else { throw MCPError.invalid("Flash source files must be 64 MiB or smaller.") }

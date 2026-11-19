@@ -70,11 +70,43 @@ final class VINDecoderTests: XCTestCase {
         } catch { XCTFail("Unexpected error: \(error)") }
     }
 
-    private func mockedSession() -> URLSession {
+    func testVINValidationAcceptsSeparatorsAndRejectsExtraOrInvalidCharacters() throws {
+        XCTAssertEqual(try VINDecoder.validatedVIN(" 4drbwaar99a-047234\n"), "4DRBWAAR99A047234")
+
+        XCTAssertThrowsError(try VINDecoder.validatedVIN("4DRBWAAR99A0472340")) { error in
+            guard case VINDecodeError.invalidLength = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+        for vin in ["4DRBWAAR99A04723O", "4DRBWAAR99A04723!"] {
+            XCTAssertThrowsError(try VINDecoder.validatedVIN(vin)) { error in
+                guard case VINDecodeError.invalidCharacters = error else { return XCTFail("Unexpected error: \(error)") }
+            }
+        }
+    }
+
+    func testNHTSATimeoutSurfacesAsServiceTimeout() async {
+        do {
+            _ = try await VINDecoder.decode("4DRBWAAR99A047234", modelYear: 2009, session: mockedSession(using: TimeoutVINProtocol.self))
+            XCTFail("Expected a timeout from the VIN lookup.")
+        } catch {
+            guard case VINDecodeError.serviceTimedOut = error else { return XCTFail("Unexpected error: \(error)") }
+        }
+    }
+
+    private func mockedSession(using urlProtocol: URLProtocol.Type = MockVINProtocol.self) -> URLSession {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [MockVINProtocol.self]
+        configuration.protocolClasses = [urlProtocol]
         return URLSession(configuration: configuration)
     }
+}
+
+private final class TimeoutVINProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        XCTAssertEqual(request.timeoutInterval, 30)
+        client?.urlProtocol(self, didFailWithError: URLError(.timedOut))
+    }
+    override func stopLoading() {}
 }
 
 private final class MockVINProtocol: URLProtocol {

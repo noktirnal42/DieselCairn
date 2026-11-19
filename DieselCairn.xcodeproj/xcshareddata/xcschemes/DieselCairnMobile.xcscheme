@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "1430"
-   version = "1.7">
+   version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES"
-      runPostActionsOnFailure = "NO">
+      buildImplicitDependencies = "YES">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -16,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "569CC292653A1CD6BADE2C6A"
-               BuildableName = "DieselCairnMobileApp.app"
+               BuildableName = "DieselCairn.app"
                BlueprintName = "DieselCairnMobileApp"
                ReferencedContainer = "container:DieselCairn.xcodeproj">
             </BuildableReference>
@@ -27,18 +26,27 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      shouldUseLaunchSchemeArgsEnv = "YES">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "569CC292653A1CD6BADE2C6A"
-            BuildableName = "DieselCairnMobileApp.app"
+            BuildableName = "DieselCairn.app"
             BlueprintName = "DieselCairnMobileApp"
             ReferencedContainer = "container:DieselCairn.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "CECF7071751F1CBDDA2FD8D4"
+               BuildableName = "DieselCairnMobileUITests.xctest"
+               BlueprintName = "DieselCairnMobileUITests"
+               ReferencedContainer = "container:DieselCairn.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
@@ -56,13 +64,11 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "569CC292653A1CD6BADE2C6A"
-            BuildableName = "DieselCairnMobileApp.app"
+            BuildableName = "DieselCairn.app"
             BlueprintName = "DieselCairnMobileApp"
             ReferencedContainer = "container:DieselCairn.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <CommandLineArguments>
-      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -75,7 +81,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "569CC292653A1CD6BADE2C6A"
-            BuildableName = "DieselCairnMobileApp.app"
+            BuildableName = "DieselCairn.app"
             BlueprintName = "DieselCairnMobileApp"
             ReferencedContainer = "container:DieselCairn.xcodeproj">
          </BuildableReference>

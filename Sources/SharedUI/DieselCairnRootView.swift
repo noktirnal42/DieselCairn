@@ -31,7 +31,11 @@ private enum AppPage: String, CaseIterable, Identifiable {
 public struct DieselCairnRootView: View {
     private let simulationTimer = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
     @StateObject private var connection = ConnectionManager()
+#if os(iOS)
+    @State private var navigationPath: [AppPage] = []
+#else
     @State private var selection: AppPage? = .overview
+#endif
     @State private var profile = VehicleProfile()
     @AppStorage("dieselcairn.vehicleProfile") private var storedProfile = ""
     @State private var profileLoaded = false
@@ -41,22 +45,9 @@ public struct DieselCairnRootView: View {
     public var body: some View {
         Group {
 #if os(iOS)
-        NavigationStack {
-            pageContent(.overview)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Menu {
-                            ForEach(AppPage.allCases) { page in
-                                NavigationLink(value: page) { Label(page.rawValue, systemImage: page.icon) }
-                            }
-                        } label: {
-                            Label("Sections", systemImage: "line.3.horizontal")
-                                .labelStyle(.iconOnly)
-                        }
-                        .accessibilityLabel("Choose service section")
-                    }
-                }
-                .navigationDestination(for: AppPage.self) { pageContent($0) }
+        NavigationStack(path: $navigationPath) {
+            mobilePageContent(.overview)
+                .navigationDestination(for: AppPage.self) { mobilePageContent($0) }
                 .background(DieselCairnBrand.ink.ignoresSafeArea())
         }
 #else
@@ -66,12 +57,17 @@ public struct DieselCairnRootView: View {
                     Button {
                         selection = page
                     } label: {
-                        Label(page.rawValue, systemImage: page.icon)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+                        Label {
+                            Text(page.rawValue)
+                        } icon: {
+                            Image(systemName: page.icon)
+                                .foregroundStyle(selection == page ? DieselCairnBrand.accent : DieselCairnBrand.muted)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .listRowBackground(selection == page ? Color.white.opacity(0.10) : Color.clear)
+                    .listRowBackground(selection == page ? DieselCairnBrand.accent.opacity(0.14) : Color.clear)
                     .accessibilityAddTraits(selection == page ? .isSelected : [])
                 }
             }
@@ -107,17 +103,53 @@ public struct DieselCairnRootView: View {
         .onChange(of: profile) { updated in persistProfile(updated) }
     }
 
+#if os(iOS)
+    private func mobilePageContent(_ currentPage: AppPage) -> some View {
+        pageContent(currentPage)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(AppPage.allCases) { page in
+                            Button {
+                                open(page)
+                            } label: {
+                                Label(page.rawValue, systemImage: page == currentPage ? "checkmark" : page.icon)
+                            }
+                        }
+                    } label: {
+                        Label("Sections", systemImage: "line.3.horizontal")
+                            .labelStyle(.iconOnly)
+                    }
+                    .accessibilityLabel("Choose service section")
+                }
+            }
+    }
+#endif
+
+    private func open(_ page: AppPage) {
+#if os(iOS)
+        let path: [AppPage] = page == .overview ? [] : [page]
+        if navigationPath != path { navigationPath = path }
+#else
+        selection = page
+#endif
+    }
+
     @ViewBuilder
     private func pageContent(_ page: AppPage) -> some View {
-        switch page {
-        case .overview: OverviewView(connection: connection, profile: profile)
-        case .diagnostics: DiagnosticsView(connection: connection)
-        case .vehicle: VehicleProfileView(profile: $profile)
-        case .flash: FlashStudioView(profile: profile)
-        case .bench: BenchSimulatorView(sim: connection.simulator)
-        case .hardware: VirtualHardwareView(sim: connection.simulator)
-        case .adapters: AdapterView(connection: connection)
+        Group {
+            switch page {
+            case .overview: OverviewView(sim: connection.simulator, profile: profile)
+            case .diagnostics: DiagnosticsView(sim: connection.simulator)
+            case .vehicle: VehicleProfileView(profile: $profile)
+            case .flash: FlashStudioView(profile: profile)
+            case .bench: BenchSimulatorView(sim: connection.simulator)
+            case .hardware: VirtualHardwareView(sim: connection.simulator)
+            case .adapters:
+                AdapterView(sim: connection.simulator, disconnect: connection.disconnect) { open(.hardware) }
+            }
         }
+        .background(DieselCairnBrand.canvas.ignoresSafeArea())
     }
 
     private func persistProfile(_ updated: VehicleProfile) {
@@ -130,9 +162,8 @@ public struct DieselCairnRootView: View {
 
 private struct OverviewView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @ObservedObject var connection: ConnectionManager
+    @ObservedObject var sim: DiagnosticSimulator
     let profile: VehicleProfile
-    private var sim: DiagnosticSimulator { connection.simulator }
 
     var body: some View {
         ScrollView {
@@ -286,7 +317,7 @@ private struct OverviewView: View {
 }
 
 private struct DiagnosticsView: View {
-    @ObservedObject var connection: ConnectionManager
+    @ObservedObject var sim: DiagnosticSimulator
     @State private var faultSPN = "110"
     @State private var faultFMI: Int = 0
     @State private var faultStatus: String?
@@ -304,25 +335,25 @@ private struct DiagnosticsView: View {
                     HStack(spacing: 12) {
                         Image(systemName: "info.circle.fill").font(.title2).foregroundStyle(DieselCairnBrand.accent)
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(connection.simulator.virtualAdapterConnected ? "Virtual adapter session" : "No active session").font(.headline)
+                            Text(sim.virtualAdapterConnected ? "Virtual adapter session" : "No active session").font(.headline)
                             Text("Fault status, module identity, and freeze-frame records are source-labeled. Live vehicle clearing is unavailable until a supported target service is verified.").font(.subheadline).foregroundStyle(.white.opacity(0.62))
                         }
                     }
                 }
                 SurfaceCard {
-                    HStack { Text("Active fault codes").font(.headline); Spacer(); StatusPill(text: connection.simulator.virtualAdapterConnected ? "\(connection.simulator.faults.count) VIRTUAL" : "NO LINK", color: connection.simulator.virtualAdapterConnected ? DieselCairnBrand.success : DieselCairnBrand.muted) }
+                    HStack { Text("Active fault codes").font(.headline); Spacer(); StatusPill(text: sim.virtualAdapterConnected ? "\(sim.faults.count) VIRTUAL" : "NO LINK", color: sim.virtualAdapterConnected ? DieselCairnBrand.success : DieselCairnBrand.muted) }
                     Divider().overlay(.white.opacity(0.1)).padding(.vertical, 10)
                     VStack(alignment: .leading, spacing: 12) {
-                        if !connection.simulator.virtualAdapterConnected {
+                        if !sim.virtualAdapterConnected {
                             Label("Not connected", systemImage: "cable.connector.slash").font(.headline)
                             Text("Connect the isolated virtual bench to receive simulated faults. Vehicle data will remain separate.").font(.caption).foregroundStyle(.white.opacity(0.55))
-                        } else if connection.simulator.faults.isEmpty {
+                        } else if sim.faults.isEmpty {
                             Label("No active faults reported", systemImage: "checkmark.seal.fill").font(.headline).foregroundStyle(DieselCairnBrand.success)
                         }
-                        ForEach(connection.simulator.faults) { fault in faultRow(fault, state: "ACTIVE") }
-                        if !connection.simulator.previouslyActiveFaults.isEmpty {
+                        ForEach(sim.faults) { fault in faultRow(fault, state: "ACTIVE") }
+                        if !sim.previouslyActiveFaults.isEmpty {
                             Text("PREVIOUSLY ACTIVE").font(.caption.weight(.bold)).tracking(1).foregroundStyle(DieselCairnBrand.muted).padding(.top, 5)
-                            ForEach(connection.simulator.previouslyActiveFaults) { fault in faultRow(fault, state: "STORED") }
+                            ForEach(sim.previouslyActiveFaults) { fault in faultRow(fault, state: "STORED") }
                         }
                     }.frame(maxWidth: .infinity, minHeight: 120, alignment: .leading)
                 }
@@ -330,27 +361,15 @@ private struct DiagnosticsView: View {
                     SectionEyebrow(text: "FAULT-CODE TEST FIXTURE")
                     Text("Send a synthetic J1939 DM1 trouble code through the isolated simulator. SPN is the component or signal; FMI describes the detected failure mode.")
                         .font(.caption).foregroundStyle(.white.opacity(0.58)).padding(.top, 5)
-                    HStack(alignment: .bottom, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("SPN · 0–524287").font(.caption).foregroundStyle(DieselCairnBrand.muted)
-                            TextField("SPN", text: $faultSPN).textFieldStyle(.roundedBorder).frame(width: 150)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .bottom, spacing: 12) {
+                            faultInputs
+                            faultActions
+                        }.fixedSize(horizontal: true, vertical: false)
+                        VStack(alignment: .leading, spacing: 12) {
+                            faultInputs
+                            faultActions
                         }
-                        Stepper("FMI \(faultFMI)", value: $faultFMI, in: 0...31).frame(maxWidth: 150)
-                        Button("Send test fault") {
-                            do {
-                                guard let parsedSPN else { throw VirtualBusError.invalidFrame }
-                                let fault = try connection.simulator.sendSyntheticFault(spn: parsedSPN, fmi: UInt8(faultFMI))
-                                faultStatus = "SIMULATOR received \(fault.code)"
-                            } catch { faultStatus = error.localizedDescription }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(!connection.simulator.virtualAdapterConnected || parsedSPN == nil)
-                        Button("Clear simulator faults", role: .destructive) {
-                            connection.simulator.clearSimulatorFaults()
-                            faultStatus = "Synthetic fault list cleared · SIMULATOR"
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(!connection.simulator.virtualAdapterConnected)
                     }.padding(.top, 12)
                     if let parsedSPN {
                         Text("Definition · \(J1939FaultCatalog.spnName(parsedSPN)) — \(J1939FaultCatalog.fmiDescription(UInt8(faultFMI)))")
@@ -368,7 +387,7 @@ private struct DiagnosticsView: View {
                         HStack {
                             Text(parameter.rawValue)
                             Spacer()
-                            if connection.simulator.virtualAdapterConnected, let reading = connection.simulator.readings[parameter] {
+                            if sim.virtualAdapterConnected, let reading = sim.readings[parameter] {
                                 Text("\(reading.value.formatted(.number.precision(.fractionLength(0...1)))) \(parameter.unit)").monospacedDigit().foregroundStyle(.white.opacity(0.75))
                             }
                         }.font(.subheadline).padding(.vertical, 9)
@@ -376,7 +395,45 @@ private struct DiagnosticsView: View {
                     }
                 }
             }.padding(26).frame(maxWidth: 900).frame(maxWidth: .infinity, alignment: .leading)
-        }.navigationTitle("Diagnostics")
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .navigationTitle("Diagnostics")
+    }
+
+    private var faultInputs: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text("SPN · 0–524287").font(.caption).foregroundStyle(DieselCairnBrand.muted)
+                TextField("SPN", text: $faultSPN)
+                    .textFieldStyle(.roundedBorder)
+#if os(iOS)
+                    .keyboardType(.numberPad)
+#endif
+            }.frame(maxWidth: 140, alignment: .leading)
+            Stepper("FMI \(faultFMI)", value: $faultFMI, in: 0...31)
+                .frame(maxWidth: 155)
+        }
+    }
+
+    private var faultActions: some View {
+        HStack(spacing: 10) {
+            Button("Send test fault") {
+                do {
+                    guard let parsedSPN else { throw VirtualBusError.invalidFrame }
+                    let fault = try sim.sendSyntheticFault(spn: parsedSPN, fmi: UInt8(faultFMI))
+                    faultStatus = "SIMULATOR received \(fault.code)"
+                } catch { faultStatus = error.localizedDescription }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(DieselCairnBrand.actionFill)
+            .disabled(!sim.virtualAdapterConnected || parsedSPN == nil)
+            Button("Clear simulator faults", role: .destructive) {
+                sim.clearSimulatorFaults()
+                faultStatus = "Synthetic fault list cleared · SIMULATOR"
+            }
+            .buttonStyle(.bordered)
+            .disabled(!sim.virtualAdapterConnected)
+        }
     }
 
     private func faultRow(_ fault: DiagnosticFault, state: String) -> some View {
@@ -400,6 +457,16 @@ private struct VehicleProfileView: View {
     @State private var decodeSucceeded = false
     @State private var confirmVINSend = false
 
+    private let fieldColumns = [GridItem(.adaptive(minimum: 220), alignment: .leading)]
+    private var vinLength: Int { VINDecoder.unformattedVIN(profile.vin).count }
+    private var vinCanDecode: Bool { (try? VINDecoder.validatedVIN(profile.vin)) != nil }
+    private var vinHint: String {
+        if vinLength == 0 { return "Enter the 17-character VIN from the vehicle label." }
+        if vinLength != 17 { return "VIN must contain 17 characters. This entry has \(vinLength)." }
+        if !vinCanDecode { return VINDecodeError.invalidCharacters.localizedDescription }
+        return "Look up basic vehicle details using NHTSA vPIC."
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -415,10 +482,37 @@ private struct VehicleProfileView: View {
                 }
                 SurfaceCard {
                     SectionEyebrow(text: "VEHICLE IDENTITY")
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), alignment: .leading)], alignment: .leading, spacing: 12) {
-                        profileField("VIN · 17 characters", text: $profile.vin)
-                            .textCase(.uppercase).autocorrectionDisabled()
+                    LazyVGrid(columns: fieldColumns, alignment: .leading, spacing: 12) {
+                        profileField("VIN · 17 characters", text: $profile.vin, identifier: "vehicle-vin")
+                            .autocorrectionDisabled()
+#if os(iOS)
+                            .textInputAutocapitalization(.characters)
+#endif
                         profileField("Model year", text: $profile.year)
+                    }
+                    HStack(alignment: .top, spacing: 12) {
+                        Button { confirmVINSend = true } label: {
+                            Label("Decode VIN", systemImage: "barcode.viewfinder")
+                        }
+                        .disabled(decoding || !vinCanDecode)
+                        .confirmationDialog("Send VIN to NHTSA vPIC?", isPresented: $confirmVINSend, titleVisibility: .visible) {
+                            Button("Send VIN and decode") { Task { await decodeVIN() } }
+                            Button("Cancel", role: .cancel) { }
+                        } message: {
+                            Text("DieselCairn will send this VIN and model year to the public NHTSA VIN decoder over HTTPS. The result only fills basic vehicle details; module IDs and calibrations still need to be verified.")
+                        }
+                        if decoding {
+                            ProgressView("Looking up VIN with NHTSA…").controlSize(.small)
+                        } else if let decodeMessage {
+                            Text(decodeMessage).font(.caption).foregroundStyle(decodeSucceeded ? DieselCairnBrand.success : DieselCairnBrand.warning).fixedSize(horizontal: false, vertical: true)
+                        } else {
+                            Text(vinHint).font(.caption)
+                                .foregroundStyle(!vinCanDecode && vinLength > 0 ? DieselCairnBrand.warning : DieselCairnBrand.muted)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }.padding(.vertical, 4)
+                    Divider()
+                    LazyVGrid(columns: fieldColumns, alignment: .leading, spacing: 12) {
                         profileField("Make", text: $profile.make)
                         profileField("Series badge", text: $profile.model)
                         profileField("Owner / factory model number", text: $profile.vinDecodedModel)
@@ -427,29 +521,12 @@ private struct VehicleProfileView: View {
                         profileField("NHTSA transmission style", text: $profile.vinTransmissionStyle)
                         profileField("Engine", text: $profile.engine)
                     }
-                    HStack(alignment: .top, spacing: 12) {
-                        Button { confirmVINSend = true } label: {
-                            if decoding { ProgressView().controlSize(.small) } else { Label("Decode VIN", systemImage: "barcode.viewfinder") }
-                        }
-                        .disabled(decoding || profile.vin.count != 17)
-                        .confirmationDialog("Send VIN to NHTSA vPIC?", isPresented: $confirmVINSend, titleVisibility: .visible) {
-                            Button("Send VIN and decode") { Task { await decodeVIN() } }
-                            Button("Cancel", role: .cancel) { }
-                        } message: {
-                            Text("DieselCairn will send this VIN and model year to the public NHTSA VIN decoder over HTTPS. The result only fills basic vehicle details; module IDs and calibrations still need to be verified.")
-                        }
-                        if let decodeMessage {
-                            Text(decodeMessage).font(.caption).foregroundStyle(decodeSucceeded ? DieselCairnBrand.success : DieselCairnBrand.warning).fixedSize(horizontal: false, vertical: true)
-                        } else {
-                            Text("Enter a complete 17-character VIN to enable decoding.").font(.caption).foregroundStyle(DieselCairnBrand.muted)
-                        }
-                    }.padding(.top, 12)
                     Text("RE300 is the rear-engine series badge; PB305 is the school-bus model number. Confirm the factory label and VIN result together.")
                         .font(.caption).foregroundStyle(DieselCairnBrand.muted).padding(.top, 8)
                 }
                 SurfaceCard {
                     SectionEyebrow(text: "ENGINE / ECM IDENTIFIERS")
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), alignment: .leading)], alignment: .leading, spacing: 12) {
+                    LazyVGrid(columns: fieldColumns, alignment: .leading, spacing: 12) {
                         profileField("Engine serial number", text: $profile.engineSerial)
                         profileField("ECM serial / part number", text: $profile.engineECMSerial)
                         profileField("ECM calibration ID / code", text: $profile.engineCalibrationID)
@@ -457,7 +534,7 @@ private struct VehicleProfileView: View {
                 }
                 SurfaceCard {
                     SectionEyebrow(text: "TRANSMISSION / TCM IDENTIFIERS")
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), alignment: .leading)], alignment: .leading, spacing: 12) {
+                    LazyVGrid(columns: fieldColumns, alignment: .leading, spacing: 12) {
                         profileField("Allison series · owner reported", text: $profile.transmissionSeries)
                         profileField("Transmission model · owner reported", text: $profile.transmissionModel)
                         profileField("Transmission serial number", text: $profile.transmissionSerial)
@@ -470,6 +547,7 @@ private struct VehicleProfileView: View {
                 SurfaceCard {
                     SectionEyebrow(text: "SERVICE NOTES")
                     TextEditor(text: $profile.notes)
+                        .accessibilityLabel("Service notes")
                         .frame(minHeight: 100)
                         .scrollContentBackground(.hidden)
                         .padding(6)
@@ -486,25 +564,36 @@ private struct VehicleProfileView: View {
             .frame(maxWidth: 920)
             .frame(maxWidth: .infinity)
         }
-        .background(DieselCairnBrand.ink)
         .navigationTitle("Vehicle profile")
+        .onChange(of: profile.vin) { _ in decodeMessage = nil }
+        .onChange(of: profile.year) { _ in
+            if !decodeSucceeded { decodeMessage = nil }
+        }
     }
 
-    private func profileField(_ label: String, text: Binding<String>) -> some View {
+    private func profileField(_ label: String, text: Binding<String>, identifier: String? = nil) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label).font(.caption.weight(.medium)).foregroundStyle(DieselCairnBrand.muted)
-            TextField(label, text: text)
+            TextField(label, text: text, prompt: Text(""))
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel(label)
+                .accessibilityIdentifier(identifier ?? label)
         }
     }
 
     @MainActor private func decodeVIN() async {
+        guard let requestVIN = try? VINDecoder.validatedVIN(profile.vin) else { return }
+        let requestYear = profile.year
         decoding = true
         decodeSucceeded = false
+        decodeMessage = nil
         defer { decoding = false }
         do {
-            let decoded = try await VINDecoder.decode(profile.vin, modelYear: Int(profile.year))
+            let decoded = try await VINDecoder.decode(
+                requestVIN,
+                modelYear: Int(requestYear.trimmingCharacters(in: .whitespacesAndNewlines))
+            )
+            guard (try? VINDecoder.validatedVIN(profile.vin)) == requestVIN, profile.year == requestYear else { return }
             let reportedModelCode = decoded.model.trimmingCharacters(in: .whitespacesAndNewlines)
             let confirmedModelCode = profile.vinDecodedModel.trimmingCharacters(in: .whitespacesAndNewlines)
             let modelCodeMismatch = !reportedModelCode.isEmpty && !confirmedModelCode.isEmpty &&
@@ -525,12 +614,16 @@ private struct VehicleProfileView: View {
                 decodeMessage = "VIN fields updated · \([reportedModelCode, decoded.series].filter { !$0.isEmpty }.joined(separator: " / ")) · verify physical bus and module data"
                 decodeSucceeded = true
             }
-        } catch { decodeMessage = error.localizedDescription }
+        } catch {
+            guard (try? VINDecoder.validatedVIN(profile.vin)) == requestVIN, profile.year == requestYear else { return }
+            decodeMessage = error.localizedDescription
+        }
     }
 }
 
 private struct BenchSimulatorView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var sim: DiagnosticSimulator
     @State private var showingTraceImporter = false
     @State private var showingTraceExporter = false
@@ -547,6 +640,12 @@ private struct BenchSimulatorView: View {
     @State private var j1587Status: String?
     @State private var j1587StatusIsError = false
 
+    private var compactControls: Bool { horizontalSizeClass == .compact || dynamicTypeSize.isAccessibilitySize }
+    private var modeledRates: String {
+        guard sim.isRunning else { return "Stopped" }
+        return compactControls ? "ECM 20 Hz\nTCM 10 Hz" : "ECM 20 Hz · TCM 10 Hz"
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
@@ -561,26 +660,28 @@ private struct BenchSimulatorView: View {
                     BrandMark(size: 46)
                 }
                 SurfaceCard {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Scenario").font(.headline)
-                            Text("Start isolated virtual J1939 and J1708/J1587 links. Synthetic nodes emit through the virtual adapter transport before DieselCairn decodes them.").font(.caption).foregroundStyle(.white.opacity(0.58))
+                    if compactControls {
+                        VStack(alignment: .leading, spacing: 10) {
+                            scenarioDescription
+                            scenarioPicker.pickerStyle(.menu)
+                            sessionActions
                         }
-                        Spacer()
-                        Button(sim.isRunning ? "Stop session" : "Start virtual session") { sim.toggleRunning() }.buttonStyle(.borderedProminent)
-                        Button("Reset") { sim.reset() }.buttonStyle(.bordered)
+                    } else {
+                        HStack {
+                            scenarioDescription
+                            Spacer()
+                            sessionActions
+                        }
+                        scenarioPicker.pickerStyle(.segmented).padding(.top, 12)
                     }
-                    Picker("Scenario", selection: $sim.scenario) {
-                        ForEach(SimulatorScenario.allCases) { scenario in Text(scenario.rawValue).tag(scenario) }
-                    }.pickerStyle(.segmented).padding(.top, 12)
                     Toggle("Virtual ECM transmits DM1 fault (SPN 110 · FMI 0)", isOn: $sim.injectDemoFault).tint(DieselCairnBrand.accent).padding(.top, 8)
                 }
-                let metricColumns = horizontalSizeClass == .compact
-                    ? [GridItem(.flexible(), alignment: .leading)]
+                let metricColumns = compactControls
+                    ? [GridItem(.adaptive(minimum: 145), alignment: .leading)]
                     : Array(repeating: GridItem(.flexible(), alignment: .leading), count: 3)
                 LazyVGrid(columns: metricColumns, spacing: 12) {
                     BenchMetric(title: "Frames processed", value: sim.framesReceived.formatted())
-                    BenchMetric(title: "Modeled rates", value: sim.isRunning ? "ECM 20 Hz · TCM 10 Hz" : "Stopped")
+                    BenchMetric(title: "Modeled rates", value: modeledRates)
                     BenchMetric(title: "Active virtual faults", value: sim.virtualAdapterConnected ? sim.faults.count.formatted() : "—")
                     BenchMetric(title: "Adapter RX / TX", value: "\(sim.adapterFramesReceived) / \(sim.adapterFramesSent)")
                     BenchMetric(title: "Transport errors", value: sim.transportErrors.formatted())
@@ -598,7 +699,7 @@ private struct BenchSimulatorView: View {
                     Stepper("Idle-high bits: \(sim.simulatedJ1708IdleBits)", value: $sim.simulatedJ1708IdleBits, in: 0...20)
                     Stepper("Priority class: \(sim.simulatedJ1708Priority)", value: $sim.simulatedJ1708Priority, in: 1...8)
                     Button("Send J1587 message to virtual link") { transmitManualJ1587() }
-                        .buttonStyle(.borderedProminent).disabled(!sim.virtualAdapterConnected)
+                        .buttonStyle(.borderedProminent).tint(DieselCairnBrand.actionFill).disabled(!sim.virtualAdapterConnected)
                     if let j1587Status {
                         Text(j1587Status).font(.caption.monospaced()).foregroundStyle(j1587StatusIsError ? DieselCairnBrand.warning : DieselCairnBrand.success)
                     }
@@ -620,7 +721,7 @@ private struct BenchSimulatorView: View {
                     }.padding(.top, 8)
                     TextField("Payload bytes (hex, space separated)", text: $manualPayload).textFieldStyle(.roundedBorder).font(.system(.body, design: .monospaced))
                     Button("Send frame to virtual bus") { transmitManualFrame() }
-                        .buttonStyle(.borderedProminent).disabled(!sim.virtualAdapterConnected)
+                        .buttonStyle(.borderedProminent).tint(DieselCairnBrand.actionFill).disabled(!sim.virtualAdapterConnected)
                     if let manualFrameStatus {
                         Text(manualFrameStatus).font(.caption.monospaced()).foregroundStyle(manualFrameError ? DieselCairnBrand.warning : DieselCairnBrand.success)
                     }
@@ -628,7 +729,8 @@ private struct BenchSimulatorView: View {
                 SurfaceCard {
                     HStack { SectionEyebrow(text: "Recent raw frames"); Spacer(); Text("29-bit J1939 · classic CAN").font(.caption2).foregroundStyle(.white.opacity(0.5)) }
                     HStack {
-                        Button("Export trace") { exportTrace() }.buttonStyle(.bordered)
+                        Button("Export trace") { exportTrace() }
+                            .buttonStyle(.bordered).disabled(sim.recentFrames.isEmpty)
                         Button("Replay fixture…") { showingTraceImporter = true }.buttonStyle(.bordered)
                         if sim.isReplayMode { StatusPill(text: "REPLAY", color: DieselCairnBrand.accent) }
                     }.padding(.vertical, 7)
@@ -686,8 +788,9 @@ private struct BenchSimulatorView: View {
                 guard let url = try result.get().first else { return }
                 let hasAccess = url.startAccessingSecurityScopedResource()
                 defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
-                let fixture = try JSONDecoder().decode(CanTraceFixture.self, from: Data(contentsOf: url))
+                let fixture = try CanTraceFixture.decode(Data(contentsOf: url))
                 guard fixture.format == "DieselCairn CAN Trace", fixture.version == 1,
+                      !fixture.frames.isEmpty,
                       fixture.frames.allSatisfy({ $0.identifier <= 0x1FFF_FFFF && $0.payload.count <= 8 }) else {
                     throw TraceFailure.invalid
                 }
@@ -700,13 +803,34 @@ private struct BenchSimulatorView: View {
         }
     }
 
+    private var scenarioDescription: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Scenario").font(.headline)
+            Text("Start isolated virtual J1939 and J1708/J1587 links. Synthetic nodes emit through the virtual adapter transport before DieselCairn decodes them.")
+                .font(.caption).foregroundStyle(.white.opacity(0.58))
+        }
+    }
+
+    private var scenarioPicker: some View {
+        Picker("Scenario", selection: $sim.scenario) {
+            ForEach(SimulatorScenario.allCases) { scenario in Text(scenario.rawValue).tag(scenario) }
+        }
+        .labelsHidden()
+    }
+
+    private var sessionActions: some View {
+        HStack {
+            Button(sim.isRunning ? "Stop session" : "Start virtual session") { sim.toggleRunning() }
+                .buttonStyle(.borderedProminent).tint(DieselCairnBrand.actionFill)
+            Button("Reset") { sim.reset() }.buttonStyle(.bordered)
+        }
+    }
+
     private func exportTrace() {
         do {
-            let fixture = CanTraceFixture(scenario: sim.isReplayMode ? "Imported replay" : sim.scenario.rawValue, frames: Array(sim.recentFrames.suffix(100)))
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            encoder.dateEncodingStrategy = .iso8601
-            traceDocument = FlashPackageDocument(data: try encoder.encode(fixture))
+            let frames = sim.recentFrames.sorted { $0.timestamp < $1.timestamp }
+            let fixture = CanTraceFixture(scenario: sim.isReplayMode ? "Imported replay" : sim.scenario.rawValue, frames: frames)
+            traceDocument = FlashPackageDocument(data: try fixture.encoded())
             traceError = nil
             showingTraceExporter = true
         } catch { traceError = error.localizedDescription }
@@ -774,20 +898,18 @@ private struct BenchMetric: View {
     let value: String
     var body: some View {
         SurfaceCard {
-            Text(title.uppercased())
-                .font(.system(size: 9, weight: .bold, design: .rounded))
-                .tracking(0.8)
-                .foregroundStyle(.white.opacity(0.5))
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded).monospacedDigit())
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 6)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title.uppercased())
+                    .font(.caption2.weight(.semibold).monospaced())
+                    .tracking(0.65)
+                    .foregroundStyle(DieselCairnBrand.muted)
+                Text(value)
+                    .font(.system(.callout, design: .rounded).weight(.bold).monospacedDigit())
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+            }
+            .frame(maxWidth: .infinity, minHeight: 60, alignment: .topLeading)
         }
-        .frame(minHeight: 92, alignment: .topLeading)
     }
 }
 
@@ -810,7 +932,7 @@ private struct FlashStudioView: View {
                 Text("Build an auditable project for an authorized ECM or TCM calibration. The project records the original payload and its SHA-256 fingerprint.")
                     .foregroundStyle(.white.opacity(0.65)).fixedSize(horizontal: false, vertical: true)
                 SurfaceCard {
-                    SectionEyebrow(text: "1 · Target record")
+                    SectionEyebrow(text: "Target record")
                     Text("\(profile.year) \(profile.make) \(profile.model)").font(.headline).padding(.top, 5)
                     Text("VIN \(profile.vin.isEmpty ? "not entered" : profile.vin)").font(.caption).foregroundStyle(.white.opacity(0.6))
                     Picker("Module", selection: $module) { Text("Engine ECM").tag("Engine ECM"); Text("Transmission TCM").tag("Transmission TCM") }.pickerStyle(.segmented).padding(.top, 8)
@@ -818,7 +940,7 @@ private struct FlashStudioView: View {
                         .font(.caption).foregroundStyle(.white.opacity(0.55)).textSelection(.enabled)
                 }
                 SurfaceCard {
-                    SectionEyebrow(text: "2 · Source image")
+                    SectionEyebrow(text: "Source image")
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(fileName.isEmpty ? "No image selected" : fileName).font(.headline).lineLimit(1)
@@ -826,7 +948,8 @@ private struct FlashStudioView: View {
                                 .font(.caption).foregroundStyle(.white.opacity(0.58))
                         }
                         Spacer()
-                        Button("Choose file…") { showingImporter = true }.buttonStyle(.borderedProminent)
+                        Button("Choose file…") { showingImporter = true }
+                            .buttonStyle(.borderedProminent).tint(DieselCairnBrand.actionFill)
                     }
                     if let payload {
                         Text("SHA-256  \(SHA256.hash(data: payload).map { String(format: "%02x", $0) }.joined())")
@@ -835,10 +958,11 @@ private struct FlashStudioView: View {
                     if let importError { Text(importError).font(.caption).foregroundStyle(DieselCairnBrand.accent) }
                 }
                 SurfaceCard {
-                    SectionEyebrow(text: "3 · Build project")
+                    SectionEyebrow(text: "Build project")
                     TextField("Operator notes, source, and intended service action", text: $notes, axis: .vertical).lineLimit(3...6).textFieldStyle(.roundedBorder).padding(.top, 6)
                     Button { buildPackage() } label: { Label("Build flash project", systemImage: "shippingbox.fill") }
-                        .buttonStyle(.borderedProminent).disabled(payload == nil).padding(.top, 6)
+                        .buttonStyle(.borderedProminent).tint(DieselCairnBrand.actionFill)
+                        .disabled(payload == nil).padding(.top, 6)
                     if let packageError { Text(packageError).font(.caption).foregroundStyle(DieselCairnBrand.accent) }
                 }
                 SurfaceCard {
@@ -882,20 +1006,22 @@ private struct FlashStudioView: View {
 }
 
 private struct AdapterView: View {
-    @ObservedObject var connection: ConnectionManager
+    @ObservedObject var sim: DiagnosticSimulator
+    let disconnect: () -> Void
+    let openVirtualHardware: () -> Void
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 SectionEyebrow(text: "Hardware pathways")
                 Text("Adapter setup").font(.largeTitle.bold())
                 SurfaceCard {
-                    Label(connection.simulator.virtualAdapterConnected ? "Virtual adapter connected" : "No adapter connected", systemImage: connection.simulator.virtualAdapterConnected ? "checkmark.circle.fill" : "cable.connector").font(.headline).foregroundStyle(connection.simulator.virtualAdapterConnected ? DieselCairnBrand.success : DieselCairnBrand.muted)
+                    Label(sim.virtualAdapterConnected ? "Virtual adapter connected" : "No adapter connected", systemImage: sim.virtualAdapterConnected ? "checkmark.circle.fill" : "cable.connector").font(.headline).foregroundStyle(sim.virtualAdapterConnected ? DieselCairnBrand.success : DieselCairnBrand.muted)
                     Text("All live paths remain disabled until their transport, receive-only startup, bus timing, error handling, and safe write recovery are validated.")
                         .font(.subheadline).foregroundStyle(.white.opacity(0.62)).padding(.top, 5)
-                    if connection.simulator.virtualAdapterConnected {
-                        Button("Stop virtual adapter") { connection.disconnect() }.buttonStyle(.bordered).padding(.top, 8)
+                    if sim.virtualAdapterConnected {
+                        Button("Stop virtual adapter", action: disconnect).buttonStyle(.bordered).padding(.top, 8)
                     } else {
-                        NavigationLink(value: AppPage.hardware) {
+                        Button(action: openVirtualHardware) {
                             Label("Open virtual hardware controls", systemImage: "cpu")
                         }.buttonStyle(.bordered).padding(.top, 8)
                     }

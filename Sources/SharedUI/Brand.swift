@@ -6,10 +6,16 @@ public enum DieselCairnBrand {
     public static let raised = Color(red: 0.145, green: 0.16, blue: 0.173)
     public static let border = Color.white.opacity(0.09)
     public static let accent = Color(red: 0.84, green: 0.53, blue: 0.19)
+    static let actionFill = Color(red: 0.61, green: 0.34, blue: 0.10)
     public static let success = Color(red: 0.39, green: 0.65, blue: 0.47)
     public static let warning = Color(red: 0.84, green: 0.58, blue: 0.24)
     public static let danger = Color(red: 0.79, green: 0.34, blue: 0.31)
-    public static let muted = Color.white.opacity(0.58)
+    public static let muted = Color.white.opacity(0.64)
+    static let canvas = LinearGradient(
+        colors: [Color(red: 0.082, green: 0.095, blue: 0.108), ink],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+    )
 }
 
 public struct BrandMark: View {
@@ -45,9 +51,11 @@ private struct CairnGlyph: Shape {
 
 struct SectionEyebrow: View {
     let text: String
+    @ScaledMetric(relativeTo: .caption2) private var fontSize = 10.0
+
     var body: some View {
         Text(text.uppercased())
-            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+            .font(.system(size: fontSize, weight: .semibold, design: .monospaced))
             .tracking(1.0)
             .foregroundStyle(DieselCairnBrand.muted)
     }
@@ -60,8 +68,16 @@ struct SurfaceCard<Content: View>: View {
             content
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(DieselCairnBrand.panel, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(DieselCairnBrand.border, lineWidth: 1))
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(
+                LinearGradient(
+                    colors: [DieselCairnBrand.raised, DieselCairnBrand.panel],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+        }
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(DieselCairnBrand.border, lineWidth: 1))
     }
 }
 

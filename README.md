@@ -28,7 +28,16 @@ xcodebuild -project DieselCairn.xcodeproj -scheme DieselCairnMac -destination 'p
 xcodebuild -project DieselCairn.xcodeproj -scheme DieselCairnMobile -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO build
 ```
 
-The package-only Mac executable can also be built with `swift build --product DieselCairnMac`. Use the Xcode project for device installation and physical QA.
+The package-only Mac executable can also be built with `swift build --product DieselCairnMac`. For an iPhone build, set the development team in the [local signing configuration](docs/DEVICE_QA.md#local-iphone-signing) before building the mobile scheme for the paired device.
+
+Run `swift test` for package tests and `python3 scripts/qa_mcp.py` for the MCP regression harness. To run the mobile UI suite, address a booted simulator by ID.
+
+```sh
+xcodebuild -project DieselCairn.xcodeproj -scheme DieselCairnMobile \
+  -destination "platform=iOS Simulator,id=$SIMULATOR_ID" \
+  -parallel-testing-enabled NO -collect-test-diagnostics never \
+  CODE_SIGNING_ALLOWED=NO test
+```
 
 ## Documents
 

@@ -18,6 +18,6 @@ let package = Package(
         .executableTarget(name: "DieselCairnMac", dependencies: ["DieselCairnUI", "iScanCore"], path: "Sources/MacOS", sources: ["AppMain.swift"]),
         .executableTarget(name: "DieselCairnMobile", dependencies: ["DieselCairnUI", "iScanCore"], path: "Sources/iOS", sources: ["AppEntry.swift"]),
         .executableTarget(name: "DieselCairnMCP", dependencies: ["DieselCairnUI", "iScanCore", "iScanModels"], path: "Sources/MCP", sources: ["main.swift"]),
-        .testTarget(name: "DieselCairnCoreTests", dependencies: ["iScanCore", "iScanModels"], path: "Tests/DieselCairnCoreTests"),
+        .testTarget(name: "DieselCairnCoreTests", dependencies: ["iScanCore", "iScanModels", "DieselCairnUI"], path: "Tests/DieselCairnCoreTests"),
     ]
 )

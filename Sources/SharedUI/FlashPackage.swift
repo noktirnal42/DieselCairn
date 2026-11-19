@@ -43,6 +43,37 @@ public struct CanTraceFixture: Codable {
         self.scenario = scenario
         self.frames = frames
     }
+
+    public func encoded() throws -> Data {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions.insert(.withFractionalSeconds)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var value = encoder.singleValueContainer()
+            try value.encode(formatter.string(from: date))
+        }
+        return try encoder.encode(self)
+    }
+
+    public static func decode(_ data: Data) throws -> Self {
+        let standardDates = ISO8601DateFormatter()
+        let fractionalDates = ISO8601DateFormatter()
+        fractionalDates.formatOptions.insert(.withFractionalSeconds)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let value = try decoder.singleValueContainer()
+            if let seconds = try? value.decode(Double.self) {
+                return Date(timeIntervalSinceReferenceDate: seconds)
+            }
+            let text = try value.decode(String.self)
+            guard let date = fractionalDates.date(from: text) ?? standardDates.date(from: text) else {
+                throw DecodingError.dataCorruptedError(in: value, debugDescription: "Invalid CAN trace timestamp.")
+            }
+            return date
+        }
+        return try decoder.decode(Self.self, from: data)
+    }
 }
 
 public enum FlashPackageBuilder {

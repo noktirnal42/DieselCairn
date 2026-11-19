@@ -6,7 +6,7 @@
 - [x] Replace the playful orange/mint palette with neutral instrument surfaces and semantic status colors.
 - [x] Add a custom app icon and matching vector brand mark for DieselCairn.
 - [x] Review Mac navigation and fix Vehicle Profile label overflow and bench metric wrapping; recheck both screens on the Mac.
-- [ ] Review current profile/Flash Studio layouts on iPhone after current-build signing and installation are available.
+- [x] Review current profile and Flash Studio layouts on the physical iPhone.
 - [ ] Check VoiceOver, keyboard navigation, contrast, and Dynamic Type on the physical devices.
 - [x] Add a Diagnostics route for simulator-only SPN/FMI fault injection and clearing, with plain-language generic FMI definitions and explicit live-clear boundary.
 
@@ -33,4 +33,6 @@
 - [x] Publish the source/docs remote; keep build products, secrets, owner VIN/captures and licensed OEM files out of the public repository.
 - [ ] Expand PC/GUI multi-link simulation and firmware emulation where peripheral models are accurate; record model limits.
 - [ ] Run current-limited adapter HIL checks and keep vehicle-level work gated on bench evidence.
-- [ ] Finish the remaining MacBook functional/accessibility checks and physical iPhone QA after Xcode account/provisioning is restored; record evidence in `docs/DEVICE_QA.md`.
+- [x] Persist the development team in a gitignored signing configuration and verify a signed install on the paired iPhone.
+- [x] Verify the installed build on the physical iPhone and record MacBook and iPhone evidence in `docs/DEVICE_QA.md`.
+- [ ] Complete remaining file workflow and accessibility checks on both devices.

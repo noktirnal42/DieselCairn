@@ -9,15 +9,29 @@
 /* Begin PBXBuildFile section */
 		1537048A32EE46AB59319D25 /* AppEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDF194D76413849DE569C5F /* AppEntry.swift */; };
 		690716EAC962A1E2E26418A6 /* DieselCairnUI in Frameworks */ = {isa = PBXBuildFile; productRef = C458D3A62FC60A9FEB7718EA /* DieselCairnUI */; };
+		7A2023B6E78801C0F8214552 /* DieselCairnMobileUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633ED1CB186F4C58C8590579 /* DieselCairnMobileUITests.swift */; };
 		8F73C04F35300D298081BC9B /* AppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD90186F59B79C1BFED9D024 /* AppMain.swift */; };
 		AA8B44BC4F21D9392CC8C336 /* DieselCairnUI in Frameworks */ = {isa = PBXBuildFile; productRef = 7D640BBD0DDFBDF9956139E9 /* DieselCairnUI */; };
 		EAA18243F4E11285B0B5F89C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9C174FA72301066276AD28D /* Assets.xcassets */; };
 		FE278693FCEA0ADCE96A98D4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9C174FA72301066276AD28D /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		9A5E9E65007629B95B4F32DF /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3CD547C171704D6B9B3C972C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 569CC292653A1CD6BADE2C6A;
+			remoteInfo = DieselCairnMobileApp;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		065ADB9C75063F2D91EF2F8E /* DieselCairnMobile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = DieselCairnMobile.xcconfig; sourceTree = "<group>"; };
+		633ED1CB186F4C58C8590579 /* DieselCairnMobileUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DieselCairnMobileUITests.swift; sourceTree = "<group>"; };
 		8F9CC9AD0B6C866AD4CDAD70 /* DieselCairnMacApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DieselCairnMacApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9DDF194D76413849DE569C5F /* AppEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEntry.swift; sourceTree = "<group>"; };
+		CA1C66F837028CA980A49840 /* DieselCairnMobileUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DieselCairnMobileUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CD90186F59B79C1BFED9D024 /* AppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppMain.swift; sourceTree = "<group>"; };
 		D85A5E2F115E18652E967244 /* DieselCairnMobileApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DieselCairnMobileApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E9C174FA72301066276AD28D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -49,15 +63,26 @@
 			children = (
 				8F9CC9AD0B6C866AD4CDAD70 /* DieselCairnMacApp.app */,
 				D85A5E2F115E18652E967244 /* DieselCairnMobileApp.app */,
+				CA1C66F837028CA980A49840 /* DieselCairnMobileUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		16DCA7A09CC38701D58BAE24 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				633ED1CB186F4C58C8590579 /* DieselCairnMobileUITests.swift */,
+			);
+			path = UITests;
 			sourceTree = "<group>";
 		};
 		3BAB2E02EC229861DE6F6B34 = {
 			isa = PBXGroup;
 			children = (
 				728ADBBB0D6C9673D4600CB3 /* Packages */,
+				DE846C88365025988D779377 /* Signing */,
 				C770CEAE193BDFAEE976931B /* Sources */,
+				16DCA7A09CC38701D58BAE24 /* UITests */,
 				1197DB6F6D63DFFD94161AEE /* Products */,
 			);
 			sourceTree = "<group>";
@@ -94,6 +119,14 @@
 				94B8938DD6819C9796D72A27 /* MacOS */,
 			);
 			path = Sources;
+			sourceTree = "<group>";
+		};
+		DE846C88365025988D779377 /* Signing */ = {
+			isa = PBXGroup;
+			children = (
+				065ADB9C75063F2D91EF2F8E /* DieselCairnMobile.xcconfig */,
+			);
+			path = Signing;
 			sourceTree = "<group>";
 		};
 		F669398935C668D109724165 /* Assets */ = {
@@ -147,6 +180,24 @@
 			productReference = 8F9CC9AD0B6C866AD4CDAD70 /* DieselCairnMacApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		CECF7071751F1CBDDA2FD8D4 /* DieselCairnMobileUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 61119AC788819C34A0463556 /* Build configuration list for PBXNativeTarget "DieselCairnMobileUITests" */;
+			buildPhases = (
+				E4EF3980671A7E06803FE4E9 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4403FF4DCC64B47554C49ED4 /* PBXTargetDependency */,
+			);
+			name = DieselCairnMobileUITests;
+			packageProductDependencies = (
+			);
+			productName = DieselCairnMobileUITests;
+			productReference = CA1C66F837028CA980A49840 /* DieselCairnMobileUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -158,6 +209,10 @@
 				TargetAttributes = {
 					569CC292653A1CD6BADE2C6A = {
 						ProvisioningStyle = Automatic;
+					};
+					CECF7071751F1CBDDA2FD8D4 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 569CC292653A1CD6BADE2C6A;
 					};
 				};
 			};
@@ -180,6 +235,7 @@
 			targets = (
 				BBF36CAC0DA23B05FC63878D /* DieselCairnMacApp */,
 				569CC292653A1CD6BADE2C6A /* DieselCairnMobileApp */,
+				CECF7071751F1CBDDA2FD8D4 /* DieselCairnMobileUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -220,17 +276,37 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E4EF3980671A7E06803FE4E9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A2023B6E78801C0F8214552 /* DieselCairnMobileUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4403FF4DCC64B47554C49ED4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 569CC292653A1CD6BADE2C6A /* DieselCairnMobileApp */;
+			targetProxy = 9A5E9E65007629B95B4F32DF /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0A61D18A59CC561DB3EE6E82 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 065ADB9C75063F2D91EF2F8E /* DieselCairnMobile.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DieselCairn;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -241,6 +317,27 @@
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		364327447067DB7F71AA04C0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 065ADB9C75063F2D91EF2F8E /* DieselCairnMobile.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.noktirnal.dieselcairn.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DieselCairnMobileApp;
 			};
 			name = Release;
 		};
@@ -300,14 +397,39 @@
 			};
 			name = Release;
 		};
+		43A412CE72F4D068606E36D5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 065ADB9C75063F2D91EF2F8E /* DieselCairnMobile.xcconfig */;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = dev.noktirnal.dieselcairn.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = DieselCairnMobileApp;
+			};
+			name = Debug;
+		};
 		7B918563671C307E3A8A7E8B /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 065ADB9C75063F2D91EF2F8E /* DieselCairnMobile.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = DieselCairn;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -427,6 +549,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		61119AC788819C34A0463556 /* Build configuration list for PBXNativeTarget "DieselCairnMobileUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				43A412CE72F4D068606E36D5 /* Debug */,
+				364327447067DB7F71AA04C0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		9CB0C0E024560F10A2A0502E /* Build configuration list for PBXProject "DieselCairn" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

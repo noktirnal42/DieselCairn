@@ -40,16 +40,39 @@ targets:
     dependencies:
       - package: DieselCairnPackage
         product: DieselCairnUI
+    configFiles:
+      Debug: Signing/DieselCairnMobile.xcconfig
+      Release: Signing/DieselCairnMobile.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.noktirnal.dieselcairn.ios
         PRODUCT_NAME: DieselCairn
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: DieselCairn
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: 5.0
         IPHONEOS_DEPLOYMENT_TARGET: "16.0"
         TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+  DieselCairnMobileUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    dependencies:
+      - target: DieselCairnMobileApp
+    configFiles:
+      Debug: Signing/DieselCairnMobile.xcconfig
+      Release: Signing/DieselCairnMobile.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.noktirnal.dieselcairn.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.0
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
         CODE_SIGN_STYLE: Automatic
 schemes:
   DieselCairnMac:
@@ -66,3 +89,6 @@ schemes:
     run:
       config: Debug
       executable: DieselCairnMobileApp
+    test:
+      targets:
+        - DieselCairnMobileUITests
