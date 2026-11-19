@@ -1,0 +1,60 @@
+site_name: DieselCairn Field Guide
+site_description: PB305 / RE300 diagnostics, protocols, simulator and bench hardware handbook
+site_url: https://noktirnal42.github.io/DieselCairn/
+repo_name: noktirnal42/DieselCairn
+repo_url: https://github.com/noktirnal42/DieselCairn
+docs_dir: docs/wiki
+site_dir: public-site
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: custom
+      accent: custom
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+    - content.tabs.link
+  logo: assets/dieselcairn-mark.svg
+  favicon: assets/dieselcairn-mark.svg
+extra_css:
+  - assets/stylesheets/extra.css
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+nav:
+  - Start Here: index.md
+  - Vehicle Profile:
+      - Target and Identity: vehicle/identity.md
+      - Service Workflows: vehicle/workflows.md
+      - Diagnostics and Safety: vehicle/diagnostics.md
+  - Protocols:
+      - Protocol Map: protocols/index.md
+      - J1939 / CAN: protocols/j1939.md
+      - J1708 / J1587: protocols/j1708-j1587.md
+      - Cross-Link Programming Workflow: protocols/programming-workflow.md
+  - Bench Lab:
+      - Simulator Guide: bench/simulator.md
+      - Reusable Simulator Tools: bench/simulator-options.md
+      - Adapter Firmware: bench/firmware.md
+      - Hardware Designs: hardware/index.md
+      - Build and Test: hardware/build-test.md
+  - Flash Studio: flash-studio.md
+  - Evidence and Sources: references.md
+  - Project Status: status.md

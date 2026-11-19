@@ -1,0 +1,68 @@
+name: DieselCairn
+options:
+  bundleIdPrefix: dev.noktirnal
+  deploymentTarget:
+    macOS: "13.0"
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+packages:
+  DieselCairnPackage:
+    path: .
+targets:
+  DieselCairnMacApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/MacOS/AppMain.swift
+      - path: Sources/Assets/Assets.xcassets
+        buildPhase: resources
+    dependencies:
+      - package: DieselCairnPackage
+        product: DieselCairnUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.noktirnal.dieselcairn
+        PRODUCT_NAME: DieselCairn
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DieselCairn
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: 5.0
+        MACOSX_DEPLOYMENT_TARGET: "13.0"
+        CODE_SIGNING_ALLOWED: NO
+  DieselCairnMobileApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/iOS/AppEntry.swift
+      - path: Sources/Assets/Assets.xcassets
+        buildPhase: resources
+    dependencies:
+      - package: DieselCairnPackage
+        product: DieselCairnUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.noktirnal.dieselcairn.ios
+        PRODUCT_NAME: DieselCairn
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DieselCairn
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: 5.0
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  DieselCairnMac:
+    build:
+      targets:
+        DieselCairnMacApp: all
+    run:
+      config: Debug
+      executable: DieselCairnMacApp
+  DieselCairnMobile:
+    build:
+      targets:
+        DieselCairnMobileApp: all
+    run:
+      config: Debug
+      executable: DieselCairnMobileApp

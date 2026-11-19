@@ -1,0 +1,55 @@
+# Xcode
+# ------------------------------------
+!default.pbxproj
+*.mode1
+*.mode1v3
+*.mode2
+*.mode2v3
+*.project
+*.xcworkspace
+*.xcuserdatad/
+*.xccheckout
+DerivedData/
+*.swiftmodule/
+*.ipa/
+*.dSYM*
+
+# User data
+*.xcuserdatad/UserInterfaceState.xcuserstate
+*.xcuserdatad/XCCodeSenseHistory.xchistory
+*.xcuserdatad/DeveloperTools/*
+
+# Build artifacts
+build/
+*.moved-aside
+.build/
+.cache/
+.swiftpm/
+DerivedData/
+.DS_Store
+__pycache__/
+*.py[cod]
+output/build/
+public-site/
+site/
+
+# Packaging
+*.swiftpackage.pins
+*.swiftpackage/
+
+# Image assets
+*.jpg
+*.png
+*.pdf
+*.tiff
+*.heic
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+# Swift Package Manager build products
+!Sources/Assets/Assets.xcassets/AppIcon.appiconset/DieselCairnMark.png
+!docs/**/*.pdf
+!output/pdf/*.pdf
